@@ -1,0 +1,43 @@
+[package]
+name = "fubuki"
+version = "0.0.0"
+authors = ["nnazo <jacobcurtis2266@gmail.com>"]
+edition = "2018"
+license-file = "LICENSE"
+readme = "README.md"
+repository = "https://github.com/nnazo/fubuki"
+description = "A cross-platform anime and manga tracker for AniList"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "fubuki_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "fubuki"
+path = "src/main.rs"
+
+[dependencies]
+#iced = { version = "0.1.1", features = ["canvas"] }
+iced = { git = "https://github.com/nnazo/iced", features = ["canvas", "tokio", "debug"] }
+regex = "1.3.7"
+serde = "1.0.111"
+serde_json = "1.0.53"
+graphql_client = "0.9.0"
+reqwest = { version = "0.10.6", features = ["json"] }
+oauth2 = "2.0.0"
+open = "1.4.0"
+url = "1.7.2"
+lazy_static = "1.4.0"
+# warp = "0.2.3"
+# tokio = "0.2.21"
+app_dirs2 = "2.0.4"
+anyhow = "1.0.31"
+once_cell = "1.4.0"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.8", features = ["winuser"] }
+
+[target.'cfg(not(windows))'.dependencies]
+wmctrl = "0.1.7"

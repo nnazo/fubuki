@@ -1,0 +1,68 @@
+query MediaList($id: Int, $type: MediaType) {
+    MediaListCollection(userId: $id, type: $type) {
+        lists {
+            name
+            status
+            isCustomList
+            entries {
+                id
+                status
+                score
+                progress
+                progressVolumes
+                repeat
+                priority
+                private
+                notes
+                hiddenFromStatusLists
+                customLists
+                startedAt {
+                    year
+                    month
+                    day
+                }
+                completedAt {
+                    year
+                    month
+                    day
+                }
+                media {
+                    id
+                    title {
+                        romaji
+                        english
+                        native
+                        userPreferred
+                    }
+                    synonyms
+                    type
+                    format
+                    status
+                    description
+                    season
+                    episodes
+                    chapters
+                    volumes
+                    countryOfOrigin
+                    isLicensed
+                    source
+                    coverImage {
+                        large
+                    }
+                    genres
+                    averageScore
+                    meanScore
+                    studios {
+                        edges {
+                            isMain
+                            node {
+                                name
+                            }
+                        }
+                    }
+                    isLocked
+                }
+            }
+        }
+    }
+}
