@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 use regex::{RegexSet, Regex, Captures};
+use once_cell::sync::Lazy;
+use crate::settings;
+use super::get_window_titles;
 
 /*
 If owned String type doesn't work, it's because the Hash and Eq both need to return true on .get()
@@ -42,7 +45,6 @@ impl MediaParser {
 
     pub fn check_and_trim_window_title<'b>(&self, window_title: &'b str, key: &str, group: &str) -> Option<&'b str> {
         let pattern = self.match_set(key, window_title)?;
-        // println!("found matching pattern {} for l{}", pattern, window_title);
         self.trim_window_title(window_title, pattern, group)
     }
 
@@ -50,7 +52,8 @@ impl MediaParser {
         let regex = self.regex_map.get(&pattern.to_string())?;
         let captures = regex.captures(window_title)?;
         // println!("attempting to trim {} with group {}", window_title, group);
-        Some(captures.name(group)?.as_str())
+        let capture = captures.name(group)?;
+        Some(capture.as_str())
     }
     
     // pub fn parse_window_title(&self, window_title: &str) -> Option<String> {
@@ -67,19 +70,49 @@ impl MediaParser {
     //     }
     // }
 
-    pub async fn parse_window_titles(&self) -> Option<String> {
+    // pub async fn parse_window_titles() -> Option<String> {
+    //     static MEDIA_PARSER: Lazy<MediaParser> = Lazy::new(|| {
+            
+    //     });
+
+    //     let group = "tab";
+    //     let player = "player";
+    //     let browser = "browser";
+    
+    //     for title in super::get_window_titles().iter() {
+    //         if let Some(trimmed) = self.check_and_trim_window_title(title, player, group) {
+    //             let captures = self.parse_media(trimmed, "anime")?;
+    //             return Some(String::from(captures.name("title")?.as_str()));
+    //         } else if let Some(trimmed) = self.check_and_trim_window_title(title, browser, group) {
+    //             if let Some(captures) = self.parse_media(trimmed, "anime") {
+    //                 return Some(String::from(captures.name("title")?.as_str()));
+    //             } else if let Some(captures) = self.parse_media(trimmed, "manga") {
+    //                 return Some(String::from(captures.name("title")?.as_str()));
+    //             }
+    //         }
+    //     }
+    //     None
+    // }
+
+    pub async fn parse_window_titles() -> Option<String> {
+        static MEDIA_PARSER: Lazy<MediaParser> = Lazy::new(|| {
+            let settings = settings::get_settings().read().unwrap();
+            let (regex_map, regex_sets) = settings.recognition.regex_data().unwrap_or_default();
+            MediaParser::new(regex_sets, regex_map)
+        });
+    
         let group = "tab";
         let player = "player";
         let browser = "browser";
     
-        for title in super::get_window_titles().iter() {
-            if let Some(trimmed) = self.check_and_trim_window_title(title, player, group) {
-                let captures = self.parse_media(trimmed, "anime")?;
+        for title in get_window_titles() {
+            if let Some(trimmed) = MEDIA_PARSER.check_and_trim_window_title(&title, player, group) {
+                let captures = MEDIA_PARSER.parse_media(trimmed, "anime")?;
                 return Some(String::from(captures.name("title")?.as_str()));
-            } else if let Some(trimmed) = self.check_and_trim_window_title(title, browser, group) {
-                if let Some(captures) = self.parse_media(trimmed, "anime") {
+            } else if let Some(trimmed) = MEDIA_PARSER.check_and_trim_window_title(&title, browser, group) {
+                if let Some(captures) = MEDIA_PARSER.parse_media(trimmed, "anime") {
                     return Some(String::from(captures.name("title")?.as_str()));
-                } else if let Some(captures) = self.parse_media(trimmed, "manga") {
+                } else if let Some(captures) = MEDIA_PARSER.parse_media(trimmed, "manga") {
                     return Some(String::from(captures.name("title")?.as_str()));
                 }
             }

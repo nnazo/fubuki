@@ -8,7 +8,7 @@ use std::{
 use serde::{Serialize, Deserialize};
 use regex::{Regex, RegexSet};
 use anyhow::Result;
-use fubuki_lib::recognition::MediaParser;
+// use fubuki_lib::recognition::MediaParser;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct RecognitionData {
@@ -17,8 +17,8 @@ pub struct RecognitionData {
     pub anime: Vec<String>,
     pub manga: Vec<String>,
 
-    #[serde(skip_serializing, skip_deserializing)]
-    pub parser: MediaParser,
+    // #[serde(skip_serializing, skip_deserializing)]
+    // pub parser: MediaParser,
 }
 
 impl<'a> RecognitionData {
@@ -31,8 +31,8 @@ impl<'a> RecognitionData {
             Ok(file) => {
                 let rdr = BufReader::new(file);
                 let mut r: RecognitionData = serde_json::from_reader(rdr)?;
-                let (regex_map, regex_sets) = r.regex_data()?;
-                r.parser = MediaParser::new(regex_sets, regex_map);
+                // let (regex_map, regex_sets) = r.regex_data()?;
+                // r.parser = MediaParser::new(regex_sets, regex_map);
                 Ok(r)
             },
             Err(err) => {
@@ -103,7 +103,7 @@ impl<'a> RecognitionData {
             let mut regexes = Vec::new();
             for val in vec {
                 let regex = Regex::new(val)?;
-                regex_map.insert(String::from(rgx), regex);
+                regex_map.insert(String::from(val), regex);
                 regexes.push(val);
             }
             let regex_set = RegexSet::new(regexes)?;

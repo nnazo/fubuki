@@ -1,4 +1,8 @@
-#[macro_use] extern crate lazy_static;
+// #[macro_use] extern crate lazy_static;
+#[cfg(windows)] extern crate winapi;
+#[cfg(windows)] #[macro_use] extern crate lazy_static;
+pub mod recognition;
+pub mod anilist;
 
 mod ui {
     pub mod components;
@@ -15,7 +19,9 @@ use iced::{
     Application, Command, executor, Element, Settings, Column, // Text, // HorizontalAlignment, VerticalAlignment,
     Subscription, time, Container, Length
 };
-use std::collections::HashMap;
+use once_cell::sync::Lazy;
+use /*fubuki_lib::*/recognition::{MediaParser};
+// use std::collections::HashMap;
 // use graphql_client::GraphQLQuery;
 
 //#![windows_subsystem = "windows"] // Tells windows compiler not to show console window
@@ -38,9 +44,9 @@ enum Message {
 
 #[derive(Default)]
 struct App {
-    settings: settings::Settings,
+    // settings: settings::Settings,
     media: String,
-    parser: fubuki_lib::recognition::MediaParser,
+    // parser: fubuki_lib::recognition::MediaParser,
     nav: components::Nav,
     page: components::Page,
 }
@@ -51,34 +57,32 @@ impl Application for App {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        // let json_map = init_json_map().unwrap_or_default();
-        // let (regex_sets, regex_map) = init_regex_maps(json_map).unwrap_or_default();
-        let settings = if let Ok(s) = settings::Settings::load() {
-            s
-        } else {
-            settings::Settings::default()
-        };
+        // let settings = if let Ok(s) = settings::Settings::load() {
+        //     s
+        // } else {
+        //     settings::Settings::default()
+        // };
 
-        let (regex_map, regex_sets) = if let Ok(r) = settings.recognition.regex_data() {
-            println!("successfully loaded regexes");
-            r
-        } else {
-            (HashMap::new(), HashMap::new())
-        };
+        // let (regex_map, regex_sets) = if let Ok(r) = settings.recognition.regex_data() {
+        //     println!("successfully loaded regexes");
+        //     r
+        // } else {
+        //     (HashMap::new(), HashMap::new())
+        // };
 
         let app = App {
-            settings: settings,
+            // settings: settings,
             media: "None Found".to_string(),
-            parser: fubuki_lib::recognition::MediaParser::new(regex_sets, regex_map),
+            // parser: fubuki_lib::recognition::MediaParser::new(regex_sets, regex_map),
             nav: components::Nav::new(),
             page: components::Page::default(),
         };
 
-        if let Some(_) = app.settings.anilist.token() {
+        if let Some(_) = settings::get_settings().write().unwrap().anilist.token() {
             println!("already authorized");
             (app, Command::none())
         } else {
-            (app, Command::perform(fubuki_lib::anilist::auth(), |result| {
+            (app, Command::perform(anilist::auth(), |result| {
                 match result {
                     Ok(token) => Message::Authorized(token),
                     Err(err) => {
@@ -97,15 +101,15 @@ impl Application for App {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::Authorized(token) => {
-                self.settings.anilist.save_token(token.as_str());
-                if let Err(err) = self.settings.anilist.save() {
+                let mut settings = settings::get_settings().write().unwrap();
+                settings.anilist.save_token(token.as_str());
+                if let Err(err) = settings.anilist.save() {
                     println!("couldn't save token: {}", err);
                 }
             },
             Message::AuthFailed => {},
             Message::SearchMedia => {
-                //self.parser.parse_window_titles()
-                return Command::perform(settings::SETTINGS.read().unwrap().recognition.parser.parse_window_titles(), Message::SearchResult);
+                return Command::perform(parse_window_titles(), Message::SearchResult);
             },
             Message::SearchResult(result) => {
                 if let Some(title) = result {
@@ -199,29 +203,29 @@ impl Application for App {
     }
 }
 
-// async fn parse_window_titles() -> Option<String> {
-//     lazy_static! {
-//         static ref PARSER: fubuki_lib::recognition::MediaParser = fubuki_lib::recognition::MediaParser::new(
-//             utils::init_regex_maps(utils::init_json_map().unwrap_or_default()).unwrap_or_default().0, 
-//             utils::init_regex_maps(utils::init_json_map().unwrap_or_default()).unwrap_or_default().1
-//         );
-//     }
-    
-//     let group = "tab";
-//     let player = "player";
-//     let browser = "browser";
+pub async fn parse_window_titles() -> Option<String> {
+    static MEDIA_PARSER: Lazy<MediaParser> = Lazy::new(|| {
+        let settings = settings::get_settings().read().unwrap();
+        // let settings = settings::SETTINGS.read().unwrap();
+        let (regex_map, regex_sets) = settings.recognition.regex_data().unwrap_or_default();
+        MediaParser::new(regex_sets, regex_map)
+    });
 
-//     for title in fubuki_lib::recognition::get_window_titles().iter() {
-//         if let Some(trimmed) = PARSER.check_and_trim_window_title(title, player, group) {
-//             let captures = PARSER.parse_media(trimmed, "anime")?;
-//             return Some(String::from(captures.name("title")?.as_str()));
-//         } else if let Some(trimmed) = PARSER.check_and_trim_window_title(title, browser, group) {
-//             if let Some(captures) = PARSER.parse_media(trimmed, "anime") {
-//                 return Some(String::from(captures.name("title")?.as_str()));
-//             } else if let Some(captures) = PARSER.parse_media(trimmed, "manga") {
-//                 return Some(String::from(captures.name("title")?.as_str()));
-//             }
-//         }
-//     }
-//     None
-// }
+    let group = "tab";
+    let player = "player";
+    let browser = "browser";
+
+    for title in recognition::get_window_titles().iter() {
+        if let Some(trimmed) = MEDIA_PARSER.check_and_trim_window_title(title, player, group) {
+            let captures = MEDIA_PARSER.parse_media(trimmed, "anime")?;
+            return Some(String::from(captures.name("title")?.as_str()));
+        } else if let Some(trimmed) = MEDIA_PARSER.check_and_trim_window_title(title, browser, group) {
+            if let Some(captures) = MEDIA_PARSER.parse_media(trimmed, "anime") {
+                return Some(String::from(captures.name("title")?.as_str()));
+            } else if let Some(captures) = MEDIA_PARSER.parse_media(trimmed, "manga") {
+                return Some(String::from(captures.name("title")?.as_str()));
+            }
+        }
+    }
+    None
+}

@@ -18,7 +18,6 @@ pub static SETTINGS: Lazy<RwLock<Settings>> = Lazy::new(|| {
         },
     }
 });
-
 #[derive(Debug, Default)]
 pub struct Settings {
     pub anilist: AniListData,

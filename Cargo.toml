@@ -10,13 +10,13 @@ description = "A cross-platform anime and manga tracker for AniList"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-name = "fubuki_lib"
-path = "src/lib.rs"
+# [lib]
+# name = "fubuki_lib"
+# path = "src/lib.rs"
 
-[[bin]]
-name = "fubuki"
-path = "src/main.rs"
+# [[bin]]
+# name = "fubuki"
+# path = "src/main.rs"
 
 [dependencies]
 #iced = { version = "0.1.1", features = ["canvas"] }
