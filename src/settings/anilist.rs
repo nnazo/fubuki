@@ -1,12 +1,12 @@
-use std::{
-    fs::{File, OpenOptions}, 
-    path::PathBuf, 
-    io::{BufWriter, BufReader}, 
-    default::Default
-};
-use app_dirs2::*;
-use serde::{Serialize, Deserialize};
 use anyhow::Result;
+use app_dirs2::*;
+use serde::{Deserialize, Serialize};
+use std::{
+    default::Default,
+    fs::{File, OpenOptions},
+    io::{BufReader, BufWriter},
+    path::PathBuf,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AniListData {
@@ -14,7 +14,10 @@ pub struct AniListData {
 }
 
 impl AniListData {
-    const FUBUKI: AppInfo = AppInfo{name: "Fubuki", author: "nnazo"};
+    const FUBUKI: AppInfo = AppInfo {
+        name: "Fubuki",
+        author: "nnazo",
+    };
     const FILE: &'static str = "anilist_data.json";
 
     pub fn load() -> Result<Self> {
@@ -23,7 +26,7 @@ impl AniListData {
             Ok(file) => {
                 let rdr = BufReader::new(file);
                 Ok(serde_json::from_reader(rdr)?)
-            },
+            }
             Err(err) => {
                 println!("could not open {:?}: {}", path, err);
                 let default = Self::default();
@@ -68,8 +71,6 @@ impl AniListData {
 
 impl Default for AniListData {
     fn default() -> Self {
-        AniListData {
-            token: None,
-        }
+        AniListData { token: None }
     }
 }

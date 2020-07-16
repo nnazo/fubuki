@@ -1,7 +1,13 @@
 #[cfg(windows)]
 pub fn get_window_titles() -> Vec<String> {
-    use winapi::{um::{winuser/*, winnt*/}, shared::{windef, minwindef}};
-    use std::{/*alloc::{Layout, alloc, dealloc}, */ffi::OsString, /*slice::from_raw_parts, */os::windows::prelude::*, sync::Mutex};
+    use std::{
+        /*alloc::{Layout, alloc, dealloc}, */ ffi::OsString,
+        /*slice::from_raw_parts, */ os::windows::prelude::*, sync::Mutex,
+    };
+    use winapi::{
+        shared::{minwindef, windef},
+        um::winuser,
+    };
     lazy_static! {
         static ref TITLES: Mutex<Vec<String>> = Mutex::new(vec![]);
     }
@@ -19,7 +25,8 @@ pub fn get_window_titles() -> Vec<String> {
             }
             let name = OsString::from_wide(&buf[..len as usize]);
             let str = name.to_str().unwrap().to_string(); // turns into Option<&str> then String
-            if !str.is_empty() { // thanks windows
+            if !str.is_empty() {
+                // thanks windows
                 TITLES.lock().unwrap().push(str);
             }
             1
@@ -33,12 +40,13 @@ pub fn get_window_titles() -> Vec<String> {
     // let titles: &mut Vec<String> = &mut*(TITLES.lock().unwrap());
     // titles.iter().for_each(|title| copy.push(String::from(title)));        // i have no idea if TITLES being static
     // copy                                                                   // within the function means it's created
-    TITLES.lock().unwrap().to_vec()                                           // every time it's called
+    TITLES.lock().unwrap().to_vec() // every time it's called
 }
 
 #[cfg(not(windows))]
 pub fn get_window_titles() -> Vec<String> {
-    wmctrl::get_windows().iter()
+    wmctrl::get_windows()
+        .iter()
         .map(|window| String::from(window.title()))
         .collect()
 }

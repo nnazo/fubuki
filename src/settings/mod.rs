@@ -1,10 +1,10 @@
-mod settings;
 mod anilist;
 mod recognition;
+pub mod settings;
 
-pub use settings::{Settings, SETTINGS};
 pub use anilist::AniListData;
 pub use recognition::RecognitionData;
+pub use settings::{Settings, SETTINGS};
 
 use once_cell::sync::Lazy;
 use std::sync::RwLock;

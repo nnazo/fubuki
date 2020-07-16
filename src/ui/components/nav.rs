@@ -1,9 +1,7 @@
 use crate::ui::style;
 // use crate::ui::style;
 // use crate::ui::components::*;
-use iced::{
-    Element, Row, button, Button, Text, Length
-};
+use iced::{button, Button, Element, Length, Row, Text};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -24,7 +22,8 @@ pub struct Nav {
     // content: Page,
 }
 
-impl Nav { // seems like this will need to be both the nav and the content pane as i cant bubble messages out of the update function when a button is pressed --- wait im not sure... these guys were wrapping those messages a lot
+impl Nav {
+    // seems like this will need to be both the nav and the content pane as i cant bubble messages out of the update function when a button is pressed --- wait im not sure... these guys were wrapping those messages a lot
     pub fn new() -> Self {
         Nav {
             media_selected: true,
@@ -39,11 +38,11 @@ impl Nav { // seems like this will need to be both the nav and the content pane 
             Message::CurrentMediaPress { selected: _ } => {
                 self.media_selected = true;
                 self.settings_selected = false;
-            },
+            }
             Message::SettingsPress { selected: _ } => {
                 self.media_selected = false;
                 self.settings_selected = true;
-            },
+            }
         }
         // if i have nav hold the container then i could do something like container.update(container::message::something)
     }
@@ -54,21 +53,24 @@ impl Nav { // seems like this will need to be both the nav and the content pane 
             // .height(Length::Units(25))
             .padding(18)
             .width(Length::Fill)
-            .style(style::Button::Nav { selected: self.media_selected })
-            .on_press(Message::CurrentMediaPress { selected: self.media_selected });
-        
+            .style(style::Button::Nav {
+                selected: self.media_selected,
+            })
+            .on_press(Message::CurrentMediaPress {
+                selected: self.media_selected,
+            });
+
         let settings = Button::new(&mut self.settings_state, Text::new("Settings"))
             // .height(Length::Units(25))
-            .padding(18 )
+            .padding(18)
             .width(Length::Fill)
-            .style(style::Button::Nav { selected: self.settings_selected })
-            .on_press(Message::SettingsPress { selected: self.settings_selected });
-        
-        Row::new()
-            .push(media)
-            .push(settings)
-            .spacing(0)
-            .into()
+            .style(style::Button::Nav {
+                selected: self.settings_selected,
+            })
+            .on_press(Message::SettingsPress {
+                selected: self.settings_selected,
+            });
+
+        Row::new().push(media).push(settings).spacing(0).into()
     }
 }
-

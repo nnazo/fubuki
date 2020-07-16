@@ -1,7 +1,11 @@
-use url::Url;
-use std::{sync::Mutex, net::{TcpListener}, io::{BufRead, BufReader, Write}, collections::HashMap};
-use oauth2::{CsrfToken, prelude::SecretNewType};
 use anyhow::Result;
+use oauth2::{prelude::SecretNewType, CsrfToken};
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Write},
+    net::TcpListener,
+};
+use url::Url;
 
 pub async fn auth() -> Result<String> {
     let code;
@@ -10,13 +14,13 @@ pub async fn auth() -> Result<String> {
     let client_id = "2355";
     let redirect_uri = "http://localhost:8080/callback";
     let url = Url::parse_with_params(
-        "https://anilist.co/api/v2/oauth/authorize", 
+        "https://anilist.co/api/v2/oauth/authorize",
         &[
             ("client_id", client_id.to_string()),
             ("redirect_uri", redirect_uri.to_string()),
             ("response_type", "code".to_string()),
             ("state", state.to_string()),
-        ]
+        ],
     )?;
 
     let mut json = HashMap::new();
@@ -41,42 +45,33 @@ pub async fn auth() -> Result<String> {
                 // println!("{}", request_line);
 
                 if let Some(url_code) = request_line.split_whitespace().nth(1) {
-                    let url = Url::parse(&("http://localhost".to_string() + url_code))?;
-                    if let Some(code_pair) = url
-                        .query_pairs()
-                        .find(|pair| {
-                            let &(ref key, _) = pair;
-                            key == "code"
-                        }) 
-                    {
-                        code = code_pair.1.into_owned();
-                    } else {
-                        code = "".to_string();
+                    let find_key = |key: &str, url: &Url| {
+                        if let Some(pair) = url.query_pairs().find(|pair| {
+                            let &(ref k, _) = pair;
+                            k == key
+                        }) {
+                            pair.1.into_owned()
+                        } else {
+                            String::default()
+                        }
                     };
-
-                    if let Some(state_pair) = url
-                        .query_pairs()
-                        .find(|pair| {
-                            let &(ref key, _) = pair;
-                            key == "state"
-                        })
-                    {
-                        urlState = state_pair.1.into_owned();
-                    } else {
-                        urlState = "".to_string();
-                    };
+                    let url = format!("http://localhost{}", url_code);
+                    let url = Url::parse(&url)?;
+                    code = find_key("code", &url);
+                    urlState = find_key("state", &url);
                 } else {
-                    code = "".to_string();
-                    urlState = "".to_string();
+                    code = String::default();
+                    urlState = String::default();
                 }
 
                 // if state == urlState {
 
                 // }
 
-                json.insert("code", code.as_str());
+                json.insert("code", &code);
                 let client = reqwest::Client::new();
-                let res = client.post("http://localhost:8081/oauth/token")
+                let res = client
+                    .post("http://localhost:8081/oauth/token")
                     .header("Accept", "application/json")
                     .json(&json)
                     .send()
@@ -93,7 +88,8 @@ pub async fn auth() -> Result<String> {
                 );
                 stream.write_all(response.as_bytes())?;
 
-                let body: serde_json::Map<String, serde_json::Value> = serde_json::from_str(res.as_str())?;
+                let body: serde_json::Map<String, serde_json::Value> =
+                    serde_json::from_str(res.as_str())?;
                 if let Some(tok) = body.get("access_token") {
                     if let Some(tok) = tok.as_str() {
                         return Ok(tok.to_string());
@@ -105,10 +101,9 @@ pub async fn auth() -> Result<String> {
             Err(e) => {
                 println!("{}", e);
                 break;
-            },
+            }
         }
     }
 
-    Ok("".to_string())
-    
+    Ok(String::default())
 }

@@ -1,15 +1,8 @@
 { 
-    "player": [
-        "(?P<tab>.+) - VLC media player"
-    ],
-    "browser": [
-        "(?P<tab>.+) - Mozilla Firefox",
-        "(?P<tab>.+) - Google Chrome"
-    ],
     "anime": [
-        "(?P<title>.+) Episode (?P<episode>\\d+),.+?- Watch on Crunchyroll"
+        "^(?P<title>.+) Episode (?P<episode>\\d+),.+?- Watch on Crunchyroll"
     ],
     "manga": [
-        "(?P<title>.+) - (Vol[.] (?P<volume>\\d+) )?(Ch[.] (?P<chapter>(\\d+[.])?\\d+) )?(?P<oneshot>Oneshot)?.*?- MangaDex"
+        "^(?P<title>.+) - (Vol[.] (?P<volume>\\d+) )?(Ch[.] (?P<chapter>(\\d+[.])?\\d+) )?(?P<oneshot>Oneshot)?.*?- MangaDex"
     ]
 }

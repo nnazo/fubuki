@@ -1,6 +1,4 @@
-use iced::{
-    Row, Length, Text, Element
-};
+use iced::{Element, Length, Row, Text};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -11,15 +9,15 @@ pub enum Message {
 #[derive(Clone, Debug)]
 pub enum Page {
     // Loading, -- this should probably not be with these
-    CurrentMedia {
-        current: String,
-    },
+    CurrentMedia { current: String },
     Settings,
 }
 
 impl Default for Page {
     fn default() -> Self {
-        Page::CurrentMedia { current: "None Found".to_string() }
+        Page::CurrentMedia {
+            current: "None Found".to_string(),
+        }
     }
 }
 
@@ -33,29 +31,28 @@ impl<'a> Page {
                             // title.clone_into(current);
                             current.clone_from(&title);
                         }
-                    },
+                    }
                     Message::MediaNotFound => {
                         current.clone_from(&"None Found".to_string());
                     }
                 }
-            },
-            Self::Settings => {},
+            }
+            Self::Settings => {}
         }
     }
 
     pub fn view(&mut self) -> Element<Message> {
         match self {
-            Self::CurrentMedia { current } => {
-                Self::current_media(current.clone()).into()
-            },
-            Self::Settings => {
-                Self::settings().into()
-            }
+            Self::CurrentMedia { current } => Self::current_media(current.clone()).into(),
+            Self::Settings => Self::settings().into(),
         }
     }
 
     fn container() -> Row<'a, Message> {
-        Row::new().spacing(0).height(Length::Fill).width(Length::Fill)
+        Row::new()
+            .spacing(0)
+            .height(Length::Fill)
+            .width(Length::Fill)
     }
 
     fn current_media(current: String) -> Row<'a, Message> {

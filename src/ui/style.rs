@@ -1,4 +1,4 @@
-use iced::{button, Background, Color, container};
+use iced::{button, container, Background, Color};
 
 // const CONTAINER_BACKGROUND: Color = Color::from_rgb8(11u8, 22u8, 34u8);
 
@@ -12,24 +12,20 @@ impl button::StyleSheet for Button {
             Button::Nav { selected } => {
                 if *selected {
                     button::Style {
-                        background: Some(
-                            Background::Color(Color::from_rgb8(21u8, 31u8, 46u8))
-                        ),
+                        background: Some(Background::Color(Color::from_rgb8(21u8, 31u8, 46u8))),
                         border_radius: 0,
                         text_color: Color::from_rgb8(144u8, 168u8, 191u8),
                         ..button::Style::default()
                     }
                 } else {
                     button::Style {
-                        background: Some(
-                            Background::Color(Color::from_rgb8(21u8, 31u8, 46u8))
-                        ),
+                        background: Some(Background::Color(Color::from_rgb8(21u8, 31u8, 46u8))),
                         border_radius: 0,
                         text_color: Color::from_rgb8(114u8, 138u8, 161u8),
                         ..button::Style::default()
                     }
                 }
-            },
+            }
         }
     }
 
@@ -43,7 +39,7 @@ impl button::StyleSheet for Button {
                     } else {
                         active.text_color
                     }
-                },
+                }
             },
             ..active
         }
@@ -66,8 +62,8 @@ impl container::StyleSheet for Container {
                 text_color: Some(Color::from_rgb8(159u8, 173u8, 189u8)),
                 border_radius: 0,
                 border_width: 0,
-                border_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0)
-            }
+                border_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+            },
         }
     }
 }

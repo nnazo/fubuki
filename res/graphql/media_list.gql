@@ -6,6 +6,7 @@ query MediaList($id: Int, $type: MediaType) {
             isCustomList
             entries {
                 id
+                mediaId
                 status
                 score
                 progress
