@@ -65,15 +65,47 @@ impl MediaParser {
         }
     }
 
-    pub async fn detect_media() -> Option<String> {
+    pub async fn detect_media() -> Option<Media> {
         for title in get_window_titles() {
             if let Some(anime_captures) = MEDIA_PARSER.parse_anime(&title) {
-                return Some(String::from(anime_captures.name("title")?.as_str()));
+                let episode = match anime_captures.name("episode") {
+                    Some(p) => Some(p.as_str().parse::<f64>().unwrap()),
+                    None => None,
+                };
+                let media = Media {
+                    title: String::from(anime_captures.name("title")?.as_str()),
+                    media_type: crate::anilist::MediaType::Anime,
+                    progress: episode,
+                    progress_volumes: None,
+                };
+                return Some(media);
             } else if let Some(manga_captures) = MEDIA_PARSER.parse_manga(&title) {
-                return Some(String::from(manga_captures.name("title")?.as_str()));
+                let chapter = match manga_captures.name("chapter") {
+                    Some(p) => Some(p.as_str().parse::<f64>().unwrap()),
+                    None => None,
+                };
+                let volume = match manga_captures.name("volume") {
+                    Some(p) => Some(p.as_str().parse::<f64>().unwrap()),
+                    None => None,
+                };
+                let media = Media {
+                    title: String::from(manga_captures.name("title")?.as_str()),
+                    media_type: crate::anilist::MediaType::Manga,
+                    progress: chapter,
+                    progress_volumes: volume,
+                };
+                return Some(media);
             }
         }
 
         None
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Media {
+    pub title: String,
+    pub media_type: crate::anilist::MediaType,
+    pub progress: Option<f64>,
+    pub progress_volumes: Option<f64>,
 }

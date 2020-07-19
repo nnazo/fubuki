@@ -1,0 +1,6 @@
+mutation($id: Int, $status: MediaListStatus, $progress: Int, $progressVolumes: Int) {
+  SaveMediaListEntry(id: $id, status: $status, progress: $progress, progressVolumes: $progressVolumes) {
+    id
+    mediaId
+  }
+}

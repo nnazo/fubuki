@@ -56,15 +56,15 @@ use serde::{self, Deserialize, Serialize};
 
 // }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
-    pub id: u32,
+    pub id: i32,
     pub name: String,
     pub options: Option<UserOptions>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UserOptions {
     pub profile_color: Option<String>,
@@ -94,13 +94,67 @@ pub struct MediaListTypeOptions {
     pub custom_lists: Option<Vec<Option<String>>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaListCollection {
     pub lists: Option<Vec<Option<MediaListGroup>>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl MediaListCollection {
+    pub fn search_title(&mut self, search: &str) -> Option<&mut MediaList> {
+        if let Some(lists) = &mut self.lists {
+            for list_group in lists.iter_mut() {
+                if let Some(list_group) = list_group {
+                    // println!("checking list group {:?}", list_group.name);
+                    if let Some(entries) = &mut list_group.entries {
+                        for entry in entries.iter_mut() {
+                            if let Some(entry) = entry {
+                                if let Some(media) = &entry.media {
+                                    // println!("  checking media id {:?}", media.id);
+                                    let titles = media.all_titles();
+                                    for title in titles {
+                                        let sim = strsim::normalized_levenshtein(title, search);
+                                        // println!("    similarity of {} between {} and {}", sim, search, title);
+                                        if sim >= 0.85 {
+                                            return Some(entry);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+impl Media {
+    pub fn all_titles(&self) -> Vec<&String> {
+        let mut titles = Vec::new();
+        if let Some(title) = &self.title {
+            Self::add_title(&mut titles, &title.romaji);
+            Self::add_title(&mut titles, &title.user_preferred);
+            Self::add_title(&mut titles, &title.native);
+            Self::add_title(&mut titles, &title.english);
+        }
+        if let Some(synonyms) = &self.synonyms {
+            synonyms
+                .iter()
+                .for_each(|title| Self::add_title(&mut titles, title));
+        }
+        titles
+    }
+
+    fn add_title<'a>(v: &mut Vec<&'a String>, title: &'a Option<String>) {
+        if let Some(title) = title {
+            v.push(title);
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaListGroup {
     pub entries: Option<Vec<Option<MediaList>>>,
@@ -110,7 +164,7 @@ pub struct MediaListGroup {
     pub status: Option<MediaListStatus>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MediaListStatus {
     Current,
@@ -121,7 +175,7 @@ pub enum MediaListStatus {
     Repeating,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaList {
     pub id: i32,
@@ -135,7 +189,72 @@ pub struct MediaList {
     pub media: Option<Media>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl MediaList {
+    pub fn update_progress(&mut self, progress: Option<f64>, progress_volumes: Option<f64>) -> bool {
+        let media = if let Some(media) = &mut self.media { media } else { return false };
+        let media_type = if let Some(media_type) = &media.media_type { media_type } else { return false };
+        let mut updated = false;
+        match media_type {
+            MediaType::Anime => {
+                let episodes = match self.progress {
+                    Some(episodes) => {
+                        if let Some(progress) = progress {
+                            if progress as i32 > episodes {
+                                updated = true;
+                                progress as i32
+                            } else {
+                                episodes
+                            }
+                        } else {
+                            episodes
+                        }
+                    },
+                    None => progress.unwrap_or_default() as i32,
+                };
+                self.progress = Some(episodes);
+            },
+            MediaType::Manga => {
+                let chapters = match self.progress {
+                    Some(chapters) => {
+                        if let Some(progress) = progress {
+                            if progress as i32 > chapters {
+                                updated = true;
+                                progress as i32
+                            } else {
+                                chapters
+                            }
+                        } else {
+                            chapters
+                        }
+                    },
+                    None => progress.unwrap_or_default() as i32,
+                };
+
+                let volumes = match self.progress_volumes {
+                    Some(volumes) => {
+                        if let Some(progress_volumes) = progress {
+                            if progress_volumes as i32 > volumes {
+                                updated = true;
+                                progress_volumes as i32
+                            } else {
+                                volumes
+                            }
+                        } else {
+                            volumes
+                        }
+                    },
+                    None => progress_volumes.unwrap_or_default() as i32,
+                };
+
+                self.progress = Some(chapters);
+                self.progress_volumes = Some(volumes);
+            },
+        }
+        updated
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Media {
     pub id: i32,
@@ -146,7 +265,7 @@ pub struct Media {
     // ...
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaTitle {
     pub romaji: Option<String>,
@@ -155,7 +274,7 @@ pub struct MediaTitle {
     pub user_preferred: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MediaType {
     Anime,

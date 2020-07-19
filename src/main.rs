@@ -39,22 +39,92 @@ fn main() {
 #[derive(Debug, Clone)]
 enum Message {
     SearchMedia,
-    SearchResult(Option<String>),
+    SearchResult(Option<recognition::Media>),
     MediaFound(String),
     MediaNotFound,
     NavChange(components::nav::Message),
     Page(components::page::Message),
     Authorized(String),
     AuthFailed,
+    UserFound(anilist::User),
+    ListRetrieved {
+        anime_list: Option<anilist::MediaListCollection>,
+        manga_list: Option<anilist::MediaListCollection>,
+    },
 }
 
 #[derive(Default)]
 struct App {
-    // settings: settings::Settings,
     media: String,
-    // parser: fubuki_lib::recognition::MediaParser,
     nav: components::Nav,
     page: components::Page,
+    user: Option<anilist::User>,
+    anime_list: Option<anilist::MediaListCollection>,
+    manga_list: Option<anilist::MediaListCollection>,
+}
+
+impl App {
+    fn query_user(token: String) -> Command<Message> {
+        Command::perform(
+            anilist::query_user(Some(token)),
+            |result| match result {
+                Ok(resp) => {
+                    if let Some(viewer_resp) = resp.data {
+                        if let Some(user) = viewer_resp.viewer {
+                            return Message::UserFound(user);
+                        }
+                    }
+                    Message::AuthFailed
+                }
+                Err(err) => {
+                    eprintln!("user query failed: {}", err);
+                    Message::AuthFailed
+                }
+            },
+        )
+    }
+
+    fn auth() -> Command<Message> {
+        Command::perform(anilist::auth(), |result| match result {
+            Ok(token) => Message::Authorized(token),
+            Err(err) => {
+                println!("authorization failed: {}", err);
+                Message::AuthFailed
+            }
+        })
+    }
+
+    fn query_user_lists(token: String, user_id: i32) -> Command<Message> {
+        Command::perform(
+            anilist::query_media_lists(Some(token), user_id),
+            |(anime_result, manga_result)| {
+                let anime_list = match anime_result {
+                    Ok(resp) => match resp.data {
+                        Some(data) => data.media_list_collection,
+                        None => None,
+                    },
+                    Err(err) => {
+                        eprintln!("query err: {}", err);
+                        None
+                    }
+                };
+                let manga_list = match manga_result {
+                    Ok(resp) => match resp.data {
+                        Some(data) => data.media_list_collection,
+                        None => None,
+                    },
+                    Err(err) => {
+                        eprintln!("query err: {}", err);
+                        None
+                    }
+                };
+                Message::ListRetrieved {
+                    anime_list,
+                    manga_list,
+                }
+            },
+        )
+    }
 }
 
 impl Application for App {
@@ -63,58 +133,22 @@ impl Application for App {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        // let settings = if let Ok(s) = settings::Settings::load() {
-        //     s
-        // } else {
-        //     settings::Settings::default()
-        // };
-
-        // let (regex_map, regex_sets) = if let Ok(r) = settings.recognition.regex_data() {
-        //     println!("successfully loaded regexes");
-        //     r
-        // } else {
-        //     (HashMap::new(), HashMap::new())
-        // };
-
         let app = App {
-            // settings: settings,
             media: "None Found".to_string(),
-            // parser: fubuki_lib::recognition::MediaParser::new(regex_sets, regex_map),
             nav: components::Nav::new(),
             page: components::Page::default(),
+            user: None,
+            anime_list: None,
+            manga_list: None,
         };
-
-        if let Some(token) = settings::get_settings().write().unwrap().anilist.token() {
-            println!("already authorized");
-            // (app, Command::none())
-            (
-                app,
-                Command::perform(
-                    anilist::query_user(Some(token.clone())),
-                    |result| match result {
-                        Ok(user) => {
-                            println!("got response\n{:#?}", user);
-                            Message::AuthFailed
-                        }
-                        Err(err) => {
-                            eprintln!("user query failed: {}", err);
-                            Message::AuthFailed
-                        }
-                    },
-                ),
-            )
-        } else {
-            (
-                app,
-                Command::perform(anilist::auth(), |result| match result {
-                    Ok(token) => Message::Authorized(token),
-                    Err(err) => {
-                        println!("authorization failed: {}", err);
-                        Message::AuthFailed
-                    }
-                }),
-            )
-        }
+        let command = match settings::get_settings().write().unwrap().anilist.token() {
+            Some(token) => {
+                println!("already authorized");
+                Self::query_user(token.clone())
+            }
+            None => Self::auth(),
+        };
+        (app, command)
     }
 
     fn title(&self) -> String {
@@ -129,14 +163,73 @@ impl Application for App {
                 if let Err(err) = settings.anilist.save() {
                     println!("couldn't save token: {}", err);
                 }
+                return Self::query_user(token);
+            }
+            Message::UserFound(user) => {
+                self.user = Some(user);
+                println!("got user {:#?}", self.user);
+                let settings = settings::get_settings().read().unwrap();
+                let token = settings.anilist.token();
+                if let Some(user) = &self.user {
+                    if let Some(token) = token {
+                        return Self::query_user_lists(token.clone(), user.id);
+                    }
+                }
             }
             Message::AuthFailed => {}
+            Message::ListRetrieved {
+                anime_list,
+                manga_list,
+            } => {
+                self.anime_list = anime_list;
+                self.manga_list = manga_list;
+                println!("got the list response");
+                println!("  anime list is some? {}", self.anime_list.is_some());
+                println!("  manga list is some? {}", self.manga_list.is_some());
+            }
             Message::SearchMedia => {
                 return Command::perform(MediaParser::detect_media(), Message::SearchResult);
             }
             Message::SearchResult(result) => {
-                if let Some(title) = result {
-                    self.update(Message::MediaFound(title));
+                if let Some(detected_media) = result {
+                    println!("detected media {:#?}", detected_media);
+
+                    let list = match detected_media.media_type {
+                        anilist::MediaType::Anime => &mut self.anime_list,
+                        anilist::MediaType::Manga => &mut self.manga_list,
+                    };
+
+                    let media = match list {
+                        Some(list) => list.search_title(&detected_media.title),
+                        None => None,
+                    };
+
+                    if let Some(media) = media {
+                        let needs_update = media.update_progress(detected_media.progress, detected_media.progress_volumes);
+                        let media = media.clone();
+                        self.update(Message::MediaFound(format!("{:#?}", media.clone())));
+                        let token = {
+                            let settings = settings::get_settings().read().unwrap();
+                            settings.anilist.token().clone()
+                        };
+                        if needs_update {
+                            println!("sending update");
+                            return Command::perform(anilist::update_media(token, media), |result| match result {
+                                Ok(resp) => {
+                                    println!("media update succeeded: {:#?}", resp);
+                                    Message::AuthFailed
+                                },
+                                Err(err) => {
+                                    println!("media update failed: {}", err);
+                                    Message::AuthFailed
+                                }
+                            });
+                        } else {
+                            println!("update not needed")
+                        }
+                    } else {
+                        self.update(Message::MediaNotFound);
+                    }
                 } else {
                     self.update(Message::MediaNotFound);
                 }
