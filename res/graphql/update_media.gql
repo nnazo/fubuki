@@ -1,5 +1,19 @@
-mutation($id: Int, $status: MediaListStatus, $progress: Int, $progressVolumes: Int) {
-  SaveMediaListEntry(id: $id, status: $status, progress: $progress, progressVolumes: $progressVolumes) {
+mutation(
+  $id: Int,
+  $status: MediaListStatus,
+  $progress: Int,
+  $progressVolumes: Int,
+  $startedAt: FuzzyDateInput,
+  $completedAt: FuzzyDateInput
+) {
+  SaveMediaListEntry(
+    id: $id,
+    status: $status,
+    progress: $progress,
+    progressVolumes: $progressVolumes,
+    startedAt: $startedAt,
+    completedAt: $completedAt
+  ) {
     id
     mediaId
   }

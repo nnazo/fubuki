@@ -1,4 +1,5 @@
 use serde::{self, Deserialize, Serialize};
+use chrono::{offset::Local, NaiveDate};
 // use std::default::Default;
 
 // pub trait Media {
@@ -20,13 +21,6 @@ use serde::{self, Deserialize, Serialize};
 //     Manga,
 //     Novel,
 //     Oneshot,
-// }
-
-// #[derive(Clone, Default, Debug)]
-// pub struct FuzzyDate {
-//     pub year: i32,
-//     pub month: i32,
-//     pub day: i32,
 // }
 
 // #[derive(Clone, Default, Debug)]
@@ -186,6 +180,8 @@ pub struct MediaList {
     // pub score: Option<f64>
     // repeat, priority, private, notes, hiddenFromStatusLists, customLists
     // startedAt, completedAt,
+    pub started_at: Option<FuzzyDate>,
+    pub completed_at: Option<FuzzyDate>,
     pub media: Option<Media>,
 }
 
@@ -232,10 +228,10 @@ impl MediaList {
 
                 let volumes = match self.progress_volumes {
                     Some(volumes) => {
-                        if let Some(progress_volumes) = progress {
-                            if progress_volumes as i32 > volumes {
+                        if let Some(progress_volumes) = progress_volumes {
+                            if progress_volumes as i32 - 1 > volumes {
                                 updated = true;
-                                progress_volumes as i32
+                                progress_volumes as i32 - 1
                             } else {
                                 volumes
                             }
@@ -250,7 +246,80 @@ impl MediaList {
                 self.progress_volumes = Some(volumes);
             },
         }
+
+        if updated && self.progress.is_some(){
+            let progress = self.progress.unwrap();
+            if progress == 1 && self.status.is_some() {
+                if let Some(status) = &mut self.status {
+                    match status {
+                        MediaListStatus::Current | MediaListStatus::Planning | MediaListStatus::Dropped | MediaListStatus::Paused => {
+                            *status = MediaListStatus::Current;
+                            self.started_at = Some(FuzzyDate::today_local());
+                        },
+                        _ => {},
+                    }
+                }
+            }
+            if let Some(media) = &mut self.media {
+                if let Some(media_type) = &media.media_type {
+                    match media_type {
+                        MediaType::Anime => {
+                            if let Some(episodes) = media.episodes {
+                                if progress == episodes {
+                                    self.status = Some(MediaListStatus::Completed);
+                                    self.completed_at = Some(FuzzyDate::today_local());
+                                }
+                            }
+                        },
+                        MediaType::Manga => {
+                            if let Some(chapters) = media.chapters {
+                                if progress == chapters {
+                                    self.status = Some(MediaListStatus::Completed);
+                                    self.completed_at = Some(FuzzyDate::today_local());
+                                }
+                            }
+                            if let Some(volumes) = media.volumes {
+                                if progress == volumes {
+                                    self.status = Some(MediaListStatus::Completed);
+                                    self.completed_at = Some(FuzzyDate::today_local());
+                                }
+                            }
+                        },
+                    }
+                }
+            }
+        }
+
         updated
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FuzzyDate {
+    pub year: Option<i32>,
+    pub month: Option<i32>,
+    pub day: Option<i32>,
+}
+
+impl FuzzyDate {
+    pub fn today_local() -> Self {
+        let date = Local::today().naive_local();
+
+        let year = Self::from_format(&date, "%Y");
+        let month = Self::from_format(&date, "%m");
+        let day = Self::from_format(&date, "%d");
+
+        FuzzyDate { year, month, day }
+    }
+
+    fn from_format(date: &NaiveDate, fmt: &str) -> Option<i32> {
+        match date.format(fmt).to_string().parse::<i32>() {
+            Ok(x) => Some(x),
+            Err(err) => {
+                println!("date int parse error: {}", err);
+                None
+            }
+        }
     }
 }
 
@@ -263,6 +332,9 @@ pub struct Media {
     pub media_type: Option<MediaType>,
     pub synonyms: Option<Vec<Option<String>>>,
     // ...
+    pub episodes: Option<i32>,
+    pub chapters: Option<i32>,
+    pub volumes: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

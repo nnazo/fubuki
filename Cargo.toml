@@ -34,6 +34,7 @@ app_dirs2 = "2.0.4"
 anyhow = "1.0.31"
 once_cell = "1.4.0"
 strsim = "0.10.0"
+chrono = "0.4.13"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.8", features = ["winuser"] }

@@ -145,6 +145,8 @@ pub async fn update_media(token: Option<String>, media: MediaList) -> Result<Que
         "status": media.status,
         "progress": media.progress,
         "progressVolumes": media.progress_volumes,
+        "startedAt": media.started_at,
+        "completedAt": media.completed_at,
     });
     if let serde_json::Value::Object(variables) = variables {
         query_from_file("./res/graphql/update_media.gql", &Some(variables), token).await
