@@ -96,26 +96,32 @@ pub struct MediaListCollection {
 
 impl MediaListCollection {
     pub fn search_title(&mut self, search: &str) -> Option<&mut MediaList> {
-        if let Some(lists) = &mut self.lists {
-            for list_group in lists.iter_mut() {
-                if let Some(list_group) = list_group {
-                    // println!("checking list group {:?}", list_group.name);
-                    if let Some(entries) = &mut list_group.entries {
-                        for entry in entries.iter_mut() {
-                            if let Some(entry) = entry {
-                                if let Some(media) = &entry.media {
-                                    // println!("  checking media id {:?}", media.id);
-                                    let titles = media.all_titles();
-                                    for title in titles {
-                                        let sim = strsim::normalized_levenshtein(title, search);
-                                        // println!("    similarity of {} between {} and {}", sim, search, title);
-                                        if sim >= 0.85 {
-                                            return Some(entry);
-                                        }
-                                    }
-                                }
-                            }
-                        }
+        let lists = self.lists.as_mut()?;
+        for list_group in lists.iter_mut() {
+            let list_group = match list_group {
+                Some(list_group) => list_group,
+                None => continue,
+            };
+            // println!("checking list group {:?}", list_group.name);
+            let entries = match &mut list_group.entries {
+                Some(entries) => entries,
+                None => continue,
+            };
+            for entry in entries.iter_mut() {
+                let entry = match entry {
+                    Some(entry) => entry,
+                    None => continue,
+                };
+                let media = match &entry.media {
+                    Some(media) => media,
+                    None => continue,
+                };
+                // println!("  checking media id {:?}", media.id);
+                for title in media.all_titles() {
+                    let sim = strsim::normalized_levenshtein(title, search);
+                    // println!("    similarity of {} between {} and {}", sim, search, title);
+                    if sim >= 0.85 {
+                        return Some(entry);
                     }
                 }
             }
