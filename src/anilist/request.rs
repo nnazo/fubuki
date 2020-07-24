@@ -144,7 +144,7 @@ pub async fn update_media(token: Option<String>, media: MediaList) -> Result<Que
         "id": media.id,
         "status": media.status,
         "progress": media.progress,
-        "progressVolumes": media.progress_volumes,
+        "progressVolumes": media.progress_volumes.unwrap_or_default(),
         "startedAt": media.started_at,
         "completedAt": media.completed_at,
     });
