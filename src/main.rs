@@ -267,7 +267,7 @@ impl Application for App {
                             _ => {}
                         }
                     }
-                }
+                },
                 components::nav::Message::SettingsPress { selected } => {
                     if !selected {
                         println!("pressed settings");
@@ -277,6 +277,15 @@ impl Application for App {
                                 self.page = components::Page::Settings;
                             }
                             _ => {}
+                        }
+                    }
+                },
+                components::nav::Message::RefreshLists => {
+                    let settings = settings::SETTINGS.read().unwrap();
+                    let token = settings.anilist.token().clone();
+                    if let Some(token) = token {
+                        if let Some(user) = &self.user {
+                            return Self::query_user_lists(token, user.id);
                         }
                     }
                 }

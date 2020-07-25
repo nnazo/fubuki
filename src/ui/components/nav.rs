@@ -9,6 +9,7 @@ pub enum Message {
     // MangaListPress,
     CurrentMediaPress { selected: bool },
     SettingsPress { selected: bool },
+    RefreshLists,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -17,6 +18,7 @@ pub struct Nav {
     // manga_state: button::State,
     media_state: button::State,
     settings_state: button::State,
+    refresh_state: button::State,
     media_selected: bool,
     settings_selected: bool,
     // content: Page,
@@ -42,7 +44,10 @@ impl Nav {
             Message::SettingsPress { selected: _ } => {
                 self.media_selected = false;
                 self.settings_selected = true;
-            }
+            },
+            Message::RefreshLists => {
+                println!("list refresh pressed");
+            },
         }
         // if i have nav hold the container then i could do something like container.update(container::message::something)
     }
@@ -71,6 +76,13 @@ impl Nav {
                 selected: self.settings_selected,
             });
 
-        Row::new().push(media).push(settings).spacing(0).into()
+        let refresh = Button::new(&mut self.refresh_state, Text::new("Refresh"))
+            .padding(18)
+            .style(style::Button::Nav {
+                selected: false,
+            })
+            .on_press(Message::RefreshLists);
+
+        Row::new().push(media).push(settings).push(refresh).spacing(0).into()
     }
 }

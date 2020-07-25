@@ -126,7 +126,7 @@ impl MediaListCollection {
         
         let mut found_entries = Vec::new();
         for entry in entries {
-            let (entry, sim) = Self::entry_is_target(entry, search);
+            let (entry, sim) = Self::entry_matching_search(entry, search);
             if sim == 1 as f64 {
                 return (entry, sim);
             } else if entry.is_some() {
@@ -145,7 +145,7 @@ impl MediaListCollection {
         (found_entry, max_sim)
     }
     
-    fn entry_is_target<'a>(entry: &'a mut Option<MediaList>, search: &str) -> (Option<&'a mut MediaList>, f64) {
+    fn entry_matching_search<'a>(entry: &'a mut Option<MediaList>, search: &str) -> (Option<&'a mut MediaList>, f64) {
         let entry = entry.as_mut();
         if let Some(entry) = entry {
             let media = entry.media.as_ref();
