@@ -1,7 +1,7 @@
 { 
     "anime": [
         "^(?P<title>.+) Episode (?P<episode>\\d+([.]\\d+)?),.+?- Watch on Crunchyroll",
-        "^Watch (?P<title>.+) (Episode|Special|Movie) (?P<episode>\\d+([.]\\d+)?) (Sub|Dub|Sub & Dub) \\| (Anime Uncut|Anime Simulcast) \\| Funimation",
+        "^Watch (?P<title>.+?)( Season \\d+)? (Episode|Special|Movie) (?P<episode>\\d+([.]\\d+)?) (Sub|Dub|Sub & Dub) \\| (Anime Uncut|Anime Simulcast) \\| Funimation",
         "^Stream ((Episode (?P<episode>\\d+([.]\\d+)?) of)|(\".+\" of)) (?P<title>.+) on HIDIVE"
     ],
     "manga": [

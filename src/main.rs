@@ -200,7 +200,7 @@ impl Application for App {
                     };
 
                     let media = match list {
-                        Some(list) => list.search_title(&detected_media.title),
+                        Some(list) => list.search_for_title(&detected_media.title),
                         None => None,
                     };
 

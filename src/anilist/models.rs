@@ -95,38 +95,71 @@ pub struct MediaListCollection {
 }
 
 impl MediaListCollection {
-    pub fn search_title(&mut self, search: &str) -> Option<&mut MediaList> {
+    pub fn search_for_title(&mut self, search: &str) -> Option<&mut MediaList> {
         let lists = self.lists.as_mut()?;
+        let mut found_entries = Vec::new();
         for list_group in lists.iter_mut() {
-            let list_group = match list_group {
-                Some(list_group) => list_group,
-                None => continue,
-            };
-            // println!("checking list group {:?}", list_group.name);
-            let entries = match &mut list_group.entries {
-                Some(entries) => entries,
-                None => continue,
-            };
-            for entry in entries.iter_mut() {
-                let entry = match entry {
-                    Some(entry) => entry,
-                    None => continue,
-                };
-                let media = match &entry.media {
-                    Some(media) => media,
-                    None => continue,
-                };
-                // println!("  checking media id {:?}", media.id);
+            let (entry, sim) = Self::search_entries(list_group.as_mut(), search);
+            if sim == 1 as f64 {
+                return entry;
+            } else if entry.is_some() {
+                found_entries.push((entry, sim));
+                // return entry;
+            }
+        }
+        let mut found_entry = None;
+        let mut max_sim = 0.0;
+        for (entry, sim) in found_entries {
+            if sim > max_sim {
+                max_sim = sim;
+                found_entry = entry;
+            }
+        }
+        found_entry
+    }
+
+    fn search_entries<'a>(list_group: Option<&'a mut MediaListGroup>, search: &str) -> (Option<&'a mut MediaList>, f64) {
+        let entries = match list_group.and_then(|list_group| list_group.entries.as_mut()) {
+            Some(entries) => entries,
+            None => return (None, 0.0),
+        };
+        
+        let mut found_entries = Vec::new();
+        for entry in entries {
+            let (entry, sim) = Self::entry_is_target(entry, search);
+            if sim == 1 as f64 {
+                return (entry, sim);
+            } else if entry.is_some() {
+                found_entries.push((entry, sim));
+                // return entry;
+            }
+        }
+        let mut found_entry = None;
+        let mut max_sim = 0.0;
+        for (entry, sim) in found_entries {
+            if sim > max_sim {
+                max_sim = sim;
+                found_entry = entry;
+            }
+        }
+        (found_entry, max_sim)
+    }
+    
+    fn entry_is_target<'a>(entry: &'a mut Option<MediaList>, search: &str) -> (Option<&'a mut MediaList>, f64) {
+        let entry = entry.as_mut();
+        if let Some(entry) = entry {
+            let media = entry.media.as_ref();
+            if let Some(media) = media {
                 for title in media.all_titles() {
                     let sim = strsim::normalized_levenshtein(title, search);
                     // println!("    similarity of {} between {} and {}", sim, search, title);
                     if sim >= 0.85 {
-                        return Some(entry);
+                        return (Some(entry), sim);
                     }
                 }
             }
         }
-        None
+        (None, 0.0)
     }
 }
 
