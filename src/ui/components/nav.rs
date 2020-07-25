@@ -1,7 +1,7 @@
 use crate::ui::style;
 // use crate::ui::style;
 // use crate::ui::components::*;
-use iced::{button, Button, Element, Length, Row, Text};
+use iced::{button, Button, Element, Length, Row, Text, image, widget::Container};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -21,6 +21,7 @@ pub struct Nav {
     refresh_state: button::State,
     media_selected: bool,
     settings_selected: bool,
+    avatar: Option<image::Handle>,
     // content: Page,
 }
 
@@ -83,6 +84,24 @@ impl Nav {
             })
             .on_press(Message::RefreshLists);
 
-        Row::new().push(media).push(settings).push(refresh).spacing(0).into()
+        let avatar = match &self.avatar {
+            Some(avatar) => Some(image::Image::new(avatar.clone())),
+            None => None,
+        };
+
+        let mut nav = Row::new().push(media).push(settings).push(refresh);
+
+        if let Some(avatar) = avatar {
+            nav = nav.push(
+                Container::new(avatar.height(Length::Units(56)))
+                    .style(style::Container::ImageBackground)
+            );
+        }
+        
+        nav.spacing(0).into()
+    }
+
+    pub fn set_avatar(&mut self, avatar: image::Handle) {
+        self.avatar = Some(avatar);
     }
 }

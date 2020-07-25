@@ -1,61 +1,25 @@
 use serde::{self, Deserialize, Serialize};
 use chrono::{offset::Local, NaiveDate};
-// use std::default::Default;
-
-// pub trait Media {
-//     fn length() -> i32; // wait what aobut decimal chapters for manga fuck
-//     fn duration() -> i32;
-// }
-
-// may also wanna move this into like a "models" module where i can have User as well and anything else that comes up
-
-// #[derive(Clone, Default, Debug)]  // maybe can just read this in as a string ... ? and other things too... dunno if i should
-// pub enum MediaFormat {
-//     Tv,
-//     TvShort,
-//     Movie,
-//     Special,
-//     Ova,
-//     Ona,
-//     Music,
-//     Manga,
-//     Novel,
-//     Oneshot,
-// }
-
-// #[derive(Clone, Default, Debug)]
-// pub struct Title {
-//     pub romaji: String,
-//     pub english: String,
-//     pub native: String,
-// }
-
-// #[derive(Clone, Default, Debug)]
-// pub struct Anime {
-//     pub id: i32,
-//     pub title: Title,
-//     // pub format: MediaFormat,
-//     pub description: String,
-//     pub start_date: FuzzyDate,
-//     pub end_date: FuzzyDate,
-//     // pub season:
-// }
-
-// #[derive(Clone, Default, Debug)]
-// pub struct Manga {
-
-// }
-
-// impl Media for Anime {
-
-// }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     pub id: i32,
     pub name: String,
+    pub media_list_options: Option<MediaListOptions>,
     pub options: Option<UserOptions>,
+    pub avatar: Option<UserAvatar>,
+}
+
+impl User {
+    pub fn get_avatar_url(&self) -> Option<String> {
+        match &self.avatar {
+            Some(avatar) => {
+                avatar.medium.clone()
+            },
+            None => None,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -64,7 +28,12 @@ pub struct UserOptions {
     pub profile_color: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserAvatar {
+    pub medium: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaListOptions {
     pub score_format: Option<ScoreFormat>,
@@ -72,17 +41,21 @@ pub struct MediaListOptions {
     pub manga_list: Option<MediaListTypeOptions>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ScoreFormat {
+    #[serde(rename = "POINT_100")]
     Point100,
+    #[serde(rename = "POINT_10_DECIMAL")]
     Point10Decimal,
+    #[serde(rename = "POINT_10")]
     Point10,
+    #[serde(rename = "POINT_5")]
     Point5,
+    #[serde(rename = "POINT_3")]
     Point3,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaListTypeOptions {
     pub custom_lists: Option<Vec<Option<String>>>,

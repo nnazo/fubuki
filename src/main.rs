@@ -8,10 +8,7 @@ extern crate lazy_static;
 pub mod anilist;
 pub mod recognition;
 pub mod settings;
-pub mod ui {
-    pub mod components;
-    pub mod style;
-}
+pub mod ui;
 use recognition::MediaParser;
 use ui::{components, style};
 
@@ -47,6 +44,7 @@ enum Message {
     Authorized(String),
     AuthFailed,
     UserFound(anilist::User),
+    AvatarRetrieved(iced::image::Handle),
     ListRetrieved {
         anime_list: Option<anilist::MediaListCollection>,
         manga_list: Option<anilist::MediaListCollection>,
@@ -168,6 +166,26 @@ impl Application for App {
             Message::UserFound(user) => {
                 self.user = Some(user);
                 println!("got user {:#?}", self.user);
+
+                if let Some(user) = &self.user {
+                    let url = user.get_avatar_url();
+                    if let Some(url) = url {
+                        return Command::perform(ui::util::fetch_image(url), |result| match result {
+                            Ok(handle) => {
+                                Message::AvatarRetrieved(handle)
+                            },
+                            Err(err) => {
+                                eprintln!("failed to get avatar {}", err);
+                                Message::AuthFailed
+                            },
+                        });
+                    }
+                }
+            },
+            Message::AvatarRetrieved(handle) => {
+                println!("got avatar");
+                self.nav.set_avatar(handle);
+                
                 let settings = settings::get_settings().read().unwrap();
                 let token = settings.anilist.token();
                 if let Some(user) = &self.user {
@@ -175,7 +193,7 @@ impl Application for App {
                         return Self::query_user_lists(token.clone(), user.id);
                     }
                 }
-            }
+            },
             Message::AuthFailed => {}
             Message::ListRetrieved {
                 anime_list,

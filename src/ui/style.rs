@@ -52,6 +52,7 @@ impl button::StyleSheet for Button {
 
 pub enum Container {
     Background,
+    ImageBackground,
 }
 
 impl container::StyleSheet for Container {
@@ -62,6 +63,13 @@ impl container::StyleSheet for Container {
                 text_color: Some(Color::from_rgb8(159u8, 173u8, 189u8)),
                 border_radius: 0,
                 border_width: 0,
+                border_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+            },
+            Container::ImageBackground => container::Style {
+                background: Some(Background::Color(Color::from_rgb8(21u8, 31u8, 46u8))),
+                border_radius: 0,
+                border_width: 0,
+                text_color: None,
                 border_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
             },
         }

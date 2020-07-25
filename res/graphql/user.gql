@@ -1,18 +1,21 @@
 query User {
-    Viewer {
-        id
-        name
-        mediaListOptions {
-            scoreFormat
-            animeList {
-                customLists
-            }
-            mangaList {
-                customLists
-            }
-        }
-        options {
-            profileColor
-        }
+  Viewer {
+    id
+    name
+    mediaListOptions {
+      scoreFormat
+      animeList {
+        customLists
+      }
+      mangaList {
+        customLists
+      }
     }
+    options {
+      profileColor
+    }
+    avatar {
+      medium
+    }
+  }
 }
