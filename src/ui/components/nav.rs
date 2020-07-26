@@ -1,7 +1,7 @@
 use crate::ui::style;
 // use crate::ui::style;
 // use crate::ui::components::*;
-use iced::{button, Button, Element, Length, Row, Text, image, widget::Container};
+use iced::{button, Button, Element, Length, Row, Text, image, widget::Container, HorizontalAlignment};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -26,7 +26,6 @@ pub struct Nav {
 }
 
 impl Nav {
-    // seems like this will need to be both the nav and the content pane as i cant bubble messages out of the update function when a button is pressed --- wait im not sure... these guys were wrapping those messages a lot
     pub fn new() -> Self {
         Nav {
             media_selected: true,
@@ -35,8 +34,6 @@ impl Nav {
     }
 
     pub fn update(&mut self, message: Message) {
-        // i dont think the nav will really ever need to update aside from
-        // changing style of the selected button -- or maybe even not? dunno since the framework should do that for me
         match message {
             Message::CurrentMediaPress { selected: _ } => {
                 self.media_selected = true;
@@ -50,14 +47,15 @@ impl Nav {
                 println!("list refresh pressed");
             },
         }
-        // if i have nav hold the container then i could do something like container.update(container::message::something)
     }
 
     pub fn view(&mut self) -> Element<Message> {
-        let media = Button::new(&mut self.media_state, Text::new("Current Media"))
-            // .width(40)
-            // .height(Length::Units(25))
-            .padding(18)
+        let media = Button::new(
+                &mut self.media_state, 
+                Text::new("Current Media")
+                    .horizontal_alignment(HorizontalAlignment::Center)
+            )
+            .padding(16)
             .width(Length::Fill)
             .style(style::Button::Nav {
                 selected: self.media_selected,
@@ -66,9 +64,12 @@ impl Nav {
                 selected: self.media_selected,
             });
 
-        let settings = Button::new(&mut self.settings_state, Text::new("Settings"))
-            // .height(Length::Units(25))
-            .padding(18)
+        let settings = Button::new(
+                &mut self.settings_state, 
+                Text::new("Settings")
+                    .horizontal_alignment(HorizontalAlignment::Center),
+            )
+            .padding(16)
             .width(Length::Fill)
             .style(style::Button::Nav {
                 selected: self.settings_selected,
@@ -77,8 +78,11 @@ impl Nav {
                 selected: self.settings_selected,
             });
 
+        let left_spacer = Container::new(Text::new("")).width(Length::FillPortion(2));
+        let right_spacer = Container::new(Text::new("")).width(Length::Fill);    
+
         let refresh = Button::new(&mut self.refresh_state, Text::new("Refresh"))
-            .padding(18)
+            .padding(16)
             .style(style::Button::Nav {
                 selected: false,
             })
@@ -89,16 +93,22 @@ impl Nav {
             None => None,
         };
 
-        let mut nav = Row::new().push(media).push(settings).push(refresh);
+        let mut nav = Row::new().spacing(0);
 
         if let Some(avatar) = avatar {
-            nav = nav.push(
-                Container::new(avatar.height(Length::Units(56)))
-                    .style(style::Container::ImageBackground)
-            );
+            nav = nav.push(avatar.height(Length::Units(52)));
         }
+
+        nav = nav
+            .push(refresh)
+            .push(right_spacer)
+            .push(media)
+            .push(settings)
+            .push(left_spacer);
         
-        nav.spacing(0).into()
+        Container::new(nav)
+            .style(style::Container::NavBackground)
+            .into()
     }
 
     pub fn set_avatar(&mut self, avatar: image::Handle) {
