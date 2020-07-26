@@ -37,7 +37,7 @@ fn main() {
 enum Message {
     SearchMedia,
     SearchResult(Option<recognition::Media>),
-    MediaFound(String),
+    MediaFound(anilist::MediaList),
     MediaNotFound,
     NavChange(components::nav::Message),
     Page(components::page::Message),
@@ -53,7 +53,7 @@ enum Message {
 
 #[derive(Default)]
 struct App {
-    media: String,
+    media: Option<anilist::MediaList>,
     nav: components::Nav,
     page: components::Page,
     user: Option<anilist::User>,
@@ -132,7 +132,7 @@ impl Application for App {
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let app = App {
-            media: "None Found".to_string(),
+            media: None,
             nav: components::Nav::new(),
             page: components::Page::default(),
             user: None,
@@ -225,7 +225,7 @@ impl Application for App {
                     if let Some(media) = media {
                         let needs_update = media.update_progress(detected_media.progress, detected_media.progress_volumes);
                         let media = media.clone();
-                        self.update(Message::MediaFound(format!("{:#?}", media.clone())));
+                        self.update(Message::MediaFound(media.clone()));
                         let token = {
                             let settings = settings::get_settings().read().unwrap();
                             settings.anilist.token().clone()
@@ -252,18 +252,17 @@ impl Application for App {
                     self.update(Message::MediaNotFound);
                 }
             }
-            Message::MediaFound(title) => {
-                self.media = title;
+            Message::MediaFound(media) => {
+                self.media = Some(media.clone());
                 match self.page {
-                    components::page::Page::CurrentMedia { current: _ } => self
-                        .page
-                        .update(components::page::Message::MediaFound(self.media.clone())),
+                    components::page::Page::CurrentMedia { current: _ } => {
+                        self.page.update(components::page::Message::MediaFound(media));
+                    },
                     _ => {}
                 }
             }
             Message::MediaNotFound => {
-                // println!("debug token: {:#?}", self.settings.anilist);
-                self.media = "None Found".to_string();
+                self.media = None;
                 match self.page {
                     components::page::Page::CurrentMedia { current: _ } => {
                         self.page.update(components::page::Message::MediaNotFound)

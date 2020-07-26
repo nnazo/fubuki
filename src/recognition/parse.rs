@@ -69,7 +69,13 @@ impl MediaParser {
         for title in get_window_titles() {
             if let Some(anime_captures) = MEDIA_PARSER.parse_anime(&title) {
                 let episode = match anime_captures.name("episode") {
-                    Some(p) => Some(p.as_str().parse::<f64>().unwrap()),
+                    Some(p) => match p.as_str().parse::<f64>() {
+                        Ok(ep) => Some(ep),
+                        Err(err) => {
+                            eprintln!("could not parse episode {}", err);
+                            None
+                        }
+                    },
                     None => None,
                 };
                 let media = Media {
@@ -81,11 +87,23 @@ impl MediaParser {
                 return Some(media);
             } else if let Some(manga_captures) = MEDIA_PARSER.parse_manga(&title) {
                 let chapter = match manga_captures.name("chapter") {
-                    Some(p) => Some(p.as_str().parse::<f64>().unwrap()),
+                    Some(p) => match p.as_str().parse::<f64>() {
+                        Ok(ep) => Some(ep),
+                        Err(err) => {
+                            eprintln!("could not parse chapter {}", err);
+                            None
+                        }
+                    },
                     None => None,
                 };
                 let volume = match manga_captures.name("volume") {
-                    Some(p) => Some(p.as_str().parse::<f64>().unwrap()),
+                    Some(p) => match p.as_str().parse::<f64>() {
+                        Ok(ep) => Some(ep),
+                        Err(err) => {
+                            eprintln!("could not parse volume {}", err);
+                            None
+                        }
+                    },
                     None => None,
                 };
                 let media = Media {

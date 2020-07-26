@@ -158,6 +158,10 @@ impl Media {
             v.push(title);
         }
     }
+
+    pub fn preferred_title(&self) -> Option<String> {
+        self.title.as_ref()?.user_preferred.clone()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
