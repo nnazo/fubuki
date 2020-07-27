@@ -332,6 +332,7 @@ impl MediaList {
         updated
     }
 
+    // TODO: Check media format (doujin, movie, etc) when making this string
     pub fn current_media_string(&self) -> String {
         match &self.media {
             Some(media) => match &media.media_type {
@@ -345,7 +346,7 @@ impl MediaList {
                     MediaType::Manga => {
                         let mut s = String::default();
                         if let Some(p) = self.progress_volumes {
-                            s = format!("Reading Vol. {}", p);
+                            s = format!("Reading Vol. {}", p+1);
                         }
                         if let Some(p) = self.progress {
                             s = format!("{}, Ch. {}", s, p);
