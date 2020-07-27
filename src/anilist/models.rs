@@ -162,6 +162,29 @@ impl Media {
     pub fn preferred_title(&self) -> Option<String> {
         self.title.as_ref()?.user_preferred.clone()
     }
+
+    pub fn cover_image_url(&self) -> Option<String> {
+        self.cover_image.as_ref()?.large.clone()
+    }
+
+    pub fn description(&mut self) -> Option<String> {
+        use once_cell::sync::Lazy;
+        static HTML_REGEX: Lazy<Result<regex::Regex, regex::Error>> = Lazy::new(|| regex::Regex::new("<.+?>"));
+        if let Some(desc) = &mut self.description {
+            *desc = desc.replace("<br>", "\n");
+            *desc = desc.replace("<br/>", "\n");
+            *desc = desc.replace("<br />", "\n");
+            match HTML_REGEX.as_ref() {
+                Ok(html_regex) => {
+                    *desc = html_regex.replace_all(desc, "").into();
+                },
+                _ => {},
+            }
+            self.description.clone()
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -308,6 +331,33 @@ impl MediaList {
 
         updated
     }
+
+    pub fn current_media_string(&self) -> String {
+        match &self.media {
+            Some(media) => match &media.media_type {
+                Some(media_type) => match media_type {
+                    MediaType::Anime => {
+                        if let Some(p) = self.progress {
+                            return format!("Watching Episode {}", p);
+                        }
+                        return String::default();
+                    },
+                    MediaType::Manga => {
+                        let mut s = String::default();
+                        if let Some(p) = self.progress_volumes {
+                            s = format!("Reading Vol. {}", p);
+                        }
+                        if let Some(p) = self.progress {
+                            s = format!("{}, Ch. {}", s, p);
+                        }
+                        return s;
+                    },
+                },
+                None => String::default(),
+            },
+            None => String::default(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -347,6 +397,8 @@ pub struct Media {
     #[serde(rename = "type")]
     pub media_type: Option<MediaType>,
     pub synonyms: Option<Vec<Option<String>>>,
+    pub cover_image: Option<MediaCoverImage>,
+    pub description: Option<String>,
     // ...
     pub episodes: Option<i32>,
     pub chapters: Option<i32>,
@@ -367,6 +419,11 @@ pub struct MediaTitle {
 pub enum MediaType {
     Anime,
     Manga,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MediaCoverImage {
+    large: Option<String>,
 }
 
 #[cfg(test)]

@@ -23,6 +23,7 @@ use iced::{
     Length,
     Settings,
     Subscription,
+    image,
 };
 // use std::collections::HashMap;
 // use graphql_client::GraphQLQuery;
@@ -37,7 +38,7 @@ fn main() {
 enum Message {
     SearchMedia,
     SearchResult(Option<recognition::Media>),
-    MediaFound(anilist::MediaList),
+    MediaFound(anilist::MediaList, bool),
     MediaNotFound,
     NavChange(components::nav::Message),
     Page(components::page::Message),
@@ -49,11 +50,14 @@ enum Message {
         anime_list: Option<anilist::MediaListCollection>,
         manga_list: Option<anilist::MediaListCollection>,
     },
+    CoverRetrieved(Option<image::Handle>),
 }
 
 #[derive(Default)]
 struct App {
+    waiting_for_cover: bool,
     media: Option<anilist::MediaList>,
+    media_cover: Option<image::Handle>,
     nav: components::Nav,
     page: components::Page,
     user: Option<anilist::User>,
@@ -132,7 +136,9 @@ impl Application for App {
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let app = App {
+            waiting_for_cover: false,
             media: None,
+            media_cover: None,
             nav: components::Nav::new(),
             page: components::Page::default(),
             user: None,
@@ -212,39 +218,22 @@ impl Application for App {
                 if let Some(detected_media) = result {
                     println!("detected media {:#?}", detected_media);
 
-                    let list = match detected_media.media_type {
-                        anilist::MediaType::Anime => &mut self.anime_list,
-                        anilist::MediaType::Manga => &mut self.manga_list,
+                    let media = {
+                        let list = match detected_media.media_type {
+                            anilist::MediaType::Anime => &mut self.anime_list,
+                            anilist::MediaType::Manga => &mut self.manga_list,
+                        };
+    
+                        match list {
+                            Some(list) => list.search_for_title(&detected_media.title),
+                            None => None,
+                        }
                     };
-
-                    let media = match list {
-                        Some(list) => list.search_for_title(&detected_media.title),
-                        None => None,
-                    };
-
+                    
                     if let Some(media) = media {
                         let needs_update = media.update_progress(detected_media.progress, detected_media.progress_volumes);
                         let media = media.clone();
-                        self.update(Message::MediaFound(media.clone()));
-                        let token = {
-                            let settings = settings::get_settings().read().unwrap();
-                            settings.anilist.token().clone()
-                        };
-                        if needs_update {
-                            println!("sending update");
-                            return Command::perform(anilist::update_media(token, media), |result| match result {
-                                Ok(resp) => {
-                                    println!("media update succeeded: {:#?}", resp);
-                                    Message::AuthFailed
-                                },
-                                Err(err) => {
-                                    println!("media update failed: {}", err);
-                                    Message::AuthFailed
-                                }
-                            });
-                        } else {
-                            println!("update not needed")
-                        }
+                        return self.update(Message::MediaFound(media, needs_update));
                     } else {
                         self.update(Message::MediaNotFound);
                     }
@@ -252,22 +241,84 @@ impl Application for App {
                     self.update(Message::MediaNotFound);
                 }
             }
-            Message::MediaFound(media) => {
+            Message::MediaFound(media, needs_update) => {
+                let cover_url = match &media.media {
+                    Some(media) => media.cover_image_url(),
+                    None => None,
+                };
                 self.media = Some(media.clone());
                 match self.page {
-                    components::page::Page::CurrentMedia { current: _ } => {
-                        self.page.update(components::page::Message::MediaFound(media));
+                    components::page::Page::CurrentMedia { current: _, cover: _ } => {
+                        self.page.update(components::page::Message::MediaFound(media.clone()));
                     },
                     _ => {}
                 }
+                let mut commands = Vec::new();
+                if let Some(cover_url) = cover_url {
+                    if let None = self.media_cover {
+                        if !self.waiting_for_cover {
+                            self.waiting_for_cover = true;
+                            println!("i am here");
+                            commands.push(Command::perform(ui::util::fetch_image(cover_url), |result| {
+                                let handle = match result {
+                                    Ok(handle) => {
+                                        println!("got cover image");
+                                        Some(handle)
+                                    },
+                                    Err(err) => { 
+                                        eprintln!("could not get cover {}", err);
+                                        None
+                                    },
+                                };
+                                Message::CoverRetrieved(handle)
+                            }));
+                        }
+                    }
+                } else {
+                    println!("no cover");
+                    self.page.update(components::page::Message::CoverChange(None));
+                }
+                let token = {
+                    let settings = settings::get_settings().read().unwrap();
+                    settings.anilist.token().clone()
+                };
+                if needs_update {
+                    println!("sending update");
+                    commands.push(Command::perform(anilist::update_media(token, media), |result| match result {
+                        Ok(resp) => {
+                            println!("media update succeeded: {:#?}", resp);
+                            Message::AuthFailed
+                        },
+                        Err(err) => {
+                            println!("media update failed: {}", err);
+                            Message::AuthFailed
+                        }
+                    }));
+                } else {
+                    println!("update not needed")
+                }
+                return Command::batch(commands);
             }
             Message::MediaNotFound => {
                 self.media = None;
+                self.media_cover = None;
                 match self.page {
-                    components::page::Page::CurrentMedia { current: _ } => {
-                        self.page.update(components::page::Message::MediaNotFound)
+                    components::page::Page::CurrentMedia { current: _, cover: _  } => {
+                        self.page.update(components::page::Message::MediaNotFound);
                     }
-                    _ => {}
+                    _ => {},
+                }
+            }
+            Message::CoverRetrieved(cover) => {
+                println!("am i ever here..");
+                self.waiting_for_cover = false;
+                self.media_cover = cover.clone();
+                match self.page {
+                    components::page::Page::CurrentMedia{ current: _, cover: _ } => {
+                        println!("uh");
+                        self.page.update(components::page::Message::CoverChange(cover));
+                    }
+                    _ => {println!("none from cover retrieve")},
                 }
             }
             Message::NavChange(msg) => match msg {
@@ -279,6 +330,7 @@ impl Application for App {
                             components::Page::Settings => {
                                 self.page = components::Page::CurrentMedia {
                                     current: self.media.clone(),
+                                    cover: self.media_cover.clone(),
                                 };
                             }
                             _ => {}
@@ -290,7 +342,7 @@ impl Application for App {
                         println!("pressed settings");
                         self.nav.update(msg);
                         match self.page {
-                            components::Page::CurrentMedia { current: _ } => {
+                            components::Page::CurrentMedia { current: _, cover: _  } => {
                                 self.page = components::Page::Settings;
                             }
                             _ => {}

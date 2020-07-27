@@ -50,12 +50,15 @@ impl Nav {
     }
 
     pub fn view(&mut self) -> Element<Message> {
+        let text_size = 18;
+        let padding_size = 16;
         let media = Button::new(
                 &mut self.media_state, 
                 Text::new("Current Media")
+                    .size(text_size)
                     .horizontal_alignment(HorizontalAlignment::Center)
             )
-            .padding(16)
+            .padding(padding_size)
             .width(Length::Fill)
             .style(style::Button::Nav {
                 selected: self.media_selected,
@@ -67,9 +70,10 @@ impl Nav {
         let settings = Button::new(
                 &mut self.settings_state, 
                 Text::new("Settings")
+                    .size(text_size)
                     .horizontal_alignment(HorizontalAlignment::Center),
             )
-            .padding(16)
+            .padding(padding_size)
             .width(Length::Fill)
             .style(style::Button::Nav {
                 selected: self.settings_selected,
@@ -81,8 +85,8 @@ impl Nav {
         let left_spacer = Container::new(Text::new("")).width(Length::FillPortion(2));
         let right_spacer = Container::new(Text::new("")).width(Length::Fill);    
 
-        let refresh = Button::new(&mut self.refresh_state, Text::new("Refresh"))
-            .padding(16)
+        let refresh = Button::new(&mut self.refresh_state, Text::new("Refresh").size(text_size))
+            .padding(padding_size)
             .style(style::Button::Nav {
                 selected: false,
             })

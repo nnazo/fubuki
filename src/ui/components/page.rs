@@ -1,23 +1,27 @@
-use iced::{Element, Length, Row, Text, Column, Container};
+use iced::{Element, Length, Row, Text, Column, Container, image};
 use crate::{anilist, ui::style};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     MediaFound(anilist::MediaList),
     MediaNotFound,
+    CoverChange(Option<image::Handle>),
 }
 
 #[derive(Clone, Debug)]
 pub enum Page {
     // Loading, -- this should probably not be with these
-    CurrentMedia { current: Option<anilist::MediaList> },
+    CurrentMedia {
+        current: Option<anilist::MediaList>,
+        cover: Option<image::Handle>,
+    },
     Settings,
 }
 
 impl Page {
     fn replace_current_media(&mut self, media_list: Option<anilist::MediaList>) {
         match self {
-            Page::CurrentMedia { current } => {
+            Page::CurrentMedia { current, cover: _ } => {
                 match media_list {
                     Some(media_list) => match current {
                         Some(curr) => {
@@ -51,12 +55,22 @@ impl Page {
             _ => {},
         }
     }
+        
+    fn replace_media_cover(&mut self, new_cover: Option<image::Handle>) {
+        match self {
+            Page::CurrentMedia { current: _, cover } => {
+                cover.clone_from(&new_cover);
+            },
+            _ => {},
+        }
+    }
 }
 
 impl Default for Page {
     fn default() -> Self {
         Page::CurrentMedia {
             current: None,
+            cover: None,
         }
     }
 }
@@ -64,13 +78,24 @@ impl Default for Page {
 impl<'a> Page {
     pub fn update(&mut self, msg: Message) {
         match self {
-            Self::CurrentMedia { current: _ } => {
+            Self::CurrentMedia { current: _, cover: _ } => {
                 match msg {
                     Message::MediaFound(media_list) => {
                         self.replace_current_media(Some(media_list));
                     }
                     Message::MediaNotFound => {
                         self.replace_current_media(None);
+                        self.replace_media_cover(None);
+                    }
+                    Message::CoverChange(cover) => {
+                        match cover {
+                            Some(cover) => {
+                                self.replace_media_cover(Some(cover));
+                            },
+                            None => {
+                                self.replace_media_cover(None);
+                            },
+                        }
                     }
                 }
             }
@@ -80,7 +105,7 @@ impl<'a> Page {
 
     pub fn view(&mut self) -> Element<Message> {
         match self {
-            Self::CurrentMedia { current } => Self::current_media(current).into(),
+            Self::CurrentMedia { current, cover } => Self::current_media(current, cover).into(),
             Self::Settings => Self::settings().into(),
         }
     }
@@ -92,8 +117,17 @@ impl<'a> Page {
             .style(style::Container::Background)
     }
 
-    fn current_media(current: &Option<anilist::MediaList>) -> Container<'a, Message> {
-        let mut cols = Column::<Message>::new().spacing(15);
+    fn current_media(current: &mut Option<anilist::MediaList>, cover: &Option<image::Handle>) -> Container<'a, Message> {
+        let padding_size = 24;
+        let spacing_size = 12;
+        let inner_col_space = 6;
+        let mut row = Row::<Message>::new().padding(padding_size).spacing(padding_size);
+        if let Some(cover) = cover {
+            row = row.push(image::Image::new(cover.clone()));
+        }
+        let mut col = Column::<Message>::new().spacing(spacing_size);
+        let title_size = 18;
+        let text_size = 14;
         match current {
             Some(current) => {
                 let title = match &current.media {
@@ -104,15 +138,26 @@ impl<'a> Page {
                     None => None,
                 };
                 match title {
-                    Some(title) => cols = cols.push(Text::new(title)),
-                    None => cols = cols.push(Text::new("Could Not Get Title")),
+                    Some(title) => col = col.push(Text::new(title).size(title_size)),
+                    None => col = col.push(Text::new("Could Not Get Title").size(title_size)),
+                }
+                col = col.push(Text::new(current.current_media_string()).size(text_size));
+                if let Some(media) = &mut current.media {
+                    if let Some(desc) = media.description() {
+                        col = col.push(
+                            Column::new()
+                                .spacing(inner_col_space)
+                                .push(Text::new("Description:").size(text_size))
+                                .push(Text::new(desc.clone()).size(text_size))
+                        );    
+                    }
                 }
             },
             None => {
-                cols = cols.push(Text::new("No Media Detected"));
+                row = row.push(Text::new("No Media Detected").size(title_size));
             },
         }
-        Self::container(cols.into())
+        Self::container(row.push(col).into())
     }
 
     fn settings() -> Container<'a, Message> {
