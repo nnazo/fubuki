@@ -24,6 +24,7 @@ use iced::{
     Settings,
     Subscription,
     image,
+    button,
 };
 // use std::collections::HashMap;
 // use graphql_client::GraphQLQuery;
@@ -327,7 +328,7 @@ impl Application for App {
                         println!("pressed media");
                         self.nav.update(msg);
                         match self.page {
-                            components::Page::Settings => {
+                            components::Page::Settings { refresh_list_state: _ } => {
                                 self.page = components::Page::CurrentMedia {
                                     current: self.media.clone(),
                                     cover: self.media_cover.clone(),
@@ -343,26 +344,24 @@ impl Application for App {
                         self.nav.update(msg);
                         match self.page {
                             components::Page::CurrentMedia { current: _, cover: _  } => {
-                                self.page = components::Page::Settings;
+                                self.page = components::Page::Settings { refresh_list_state: button::State::default() };
                             }
                             _ => {}
                         }
                     }
                 },
-                components::nav::Message::RefreshLists => {
-                    let settings = settings::SETTINGS.read().unwrap();
-                    let token = settings.anilist.token().clone();
-                    if let Some(token) = token {
-                        if let Some(user) = &self.user {
-                            return Self::query_user_lists(token, user.id);
-                        }
-                    }
-                }
             },
             Message::Page(msg) => {
-                // i could use this to listen to list update events potentially ..?
                 match msg {
-                    // components::page::Message::MediaFound
+                    components::page::Message::RefreshLists => {
+                        let settings = settings::SETTINGS.read().unwrap();
+                        let token = settings.anilist.token().clone();
+                        if let Some(token) = token {
+                            if let Some(user) = &self.user {
+                                return Self::query_user_lists(token, user.id);
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }

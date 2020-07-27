@@ -1,4 +1,4 @@
-use iced::{Element, Length, Row, Text, Column, Container, image};
+use iced::{Element, Length, Row, Text, Column, Container, image, button, Button, HorizontalAlignment};
 use crate::{anilist, ui::style};
 
 #[derive(Debug, Clone)]
@@ -6,6 +6,7 @@ pub enum Message {
     MediaFound(anilist::MediaList),
     MediaNotFound,
     CoverChange(Option<image::Handle>),
+    RefreshLists,
 }
 
 #[derive(Clone, Debug)]
@@ -15,7 +16,9 @@ pub enum Page {
         current: Option<anilist::MediaList>,
         cover: Option<image::Handle>,
     },
-    Settings,
+    Settings {
+        refresh_list_state: button::State,
+    },
 }
 
 impl Page {
@@ -96,17 +99,18 @@ impl<'a> Page {
                                 self.replace_media_cover(None);
                             },
                         }
-                    }
+                    },
+                    Message::RefreshLists => {},
                 }
             }
-            Self::Settings => {}
+            Self::Settings { refresh_list_state: _ } => {}
         }
     }
 
     pub fn view(&mut self) -> Element<Message> {
         match self {
             Self::CurrentMedia { current, cover } => Self::current_media(current, cover).into(),
-            Self::Settings => Self::settings().into(),
+            Self::Settings { refresh_list_state: _ } => self.settings().into(),
         }
     }
 
@@ -160,7 +164,27 @@ impl<'a> Page {
         Self::container(row.push(col).into())
     }
 
-    fn settings() -> Container<'a, Message> {
-        Self::container(Text::new("").into())
+    fn settings(&'a mut self) -> Container<'a, Message> {
+        let mut col = Column::new().padding(24).spacing(12);
+        let text_size = 14;
+        let button_padding = 12;
+
+        match self {
+            Page::Settings { refresh_list_state} => {
+                col = col.push(Button::new(
+                    refresh_list_state,
+                    Text::new("Refresh Lists")
+                        .size(text_size)
+                        .horizontal_alignment(HorizontalAlignment::Center)
+                )
+                .padding(button_padding)
+                .style(style::Button::Accent)
+                .on_press(Message::RefreshLists)
+                );
+            },
+            _ => {},
+        }
+
+        Self::container(col.into())
     }
 }

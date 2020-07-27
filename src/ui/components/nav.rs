@@ -9,7 +9,6 @@ pub enum Message {
     // MangaListPress,
     CurrentMediaPress { selected: bool },
     SettingsPress { selected: bool },
-    RefreshLists,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -43,9 +42,6 @@ impl Nav {
                 self.media_selected = false;
                 self.settings_selected = true;
             },
-            Message::RefreshLists => {
-                println!("list refresh pressed");
-            },
         }
     }
 
@@ -59,7 +55,6 @@ impl Nav {
                     .horizontal_alignment(HorizontalAlignment::Center)
             )
             .padding(padding_size)
-            .width(Length::Fill)
             .style(style::Button::Nav {
                 selected: self.media_selected,
             })
@@ -74,7 +69,6 @@ impl Nav {
                     .horizontal_alignment(HorizontalAlignment::Center),
             )
             .padding(padding_size)
-            .width(Length::Fill)
             .style(style::Button::Nav {
                 selected: self.settings_selected,
             })
@@ -82,15 +76,8 @@ impl Nav {
                 selected: self.settings_selected,
             });
 
-        let left_spacer = Container::new(Text::new("")).width(Length::FillPortion(2));
-        let right_spacer = Container::new(Text::new("")).width(Length::Fill);    
-
-        let refresh = Button::new(&mut self.refresh_state, Text::new("Refresh").size(text_size))
-            .padding(padding_size)
-            .style(style::Button::Nav {
-                selected: false,
-            })
-            .on_press(Message::RefreshLists);
+        let left_spacer = Container::new(Text::new("")).width(Length::FillPortion(4));
+        let right_spacer = Container::new(Text::new("")).width(Length::FillPortion(5));    
 
         let avatar = match &self.avatar {
             Some(avatar) => Some(image::Image::new(avatar.clone())),
@@ -104,11 +91,10 @@ impl Nav {
         }
 
         nav = nav
-            .push(refresh)
-            .push(right_spacer)
+            .push(left_spacer)
             .push(media)
             .push(settings)
-            .push(left_spacer);
+            .push(right_spacer);
         
         Container::new(nav)
             .style(style::Container::NavBackground)
