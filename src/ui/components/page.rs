@@ -15,6 +15,7 @@ pub enum Page {
     CurrentMedia {
         current: Option<anilist::MediaList>,
         cover: Option<image::Handle>,
+        default_cover: image::Handle,
     },
     Settings {
         refresh_list_state: button::State,
@@ -24,7 +25,7 @@ pub enum Page {
 impl Page {
     fn replace_current_media(&mut self, media_list: Option<anilist::MediaList>) {
         match self {
-            Page::CurrentMedia { current, cover: _ } => {
+            Page::CurrentMedia { current, cover: _, default_cover: _ } => {
                 match media_list {
                     Some(media_list) => match current {
                         Some(curr) => {
@@ -61,7 +62,7 @@ impl Page {
         
     fn replace_media_cover(&mut self, new_cover: Option<image::Handle>) {
         match self {
-            Page::CurrentMedia { current: _, cover } => {
+            Page::CurrentMedia { current: _, cover, default_cover: _ } => {
                 cover.clone_from(&new_cover);
             },
             _ => {},
@@ -74,6 +75,7 @@ impl Default for Page {
         Page::CurrentMedia {
             current: None,
             cover: None,
+            default_cover: image::Handle::from("./res/cover_default.jpg"),
         }
     }
 }
@@ -81,7 +83,7 @@ impl Default for Page {
 impl<'a> Page {
     pub fn update(&mut self, msg: Message) {
         match self {
-            Self::CurrentMedia { current: _, cover: _ } => {
+            Self::CurrentMedia { current: _, cover: _, default_cover: _ } => {
                 match msg {
                     Message::MediaFound(media_list) => {
                         self.replace_current_media(Some(media_list));
@@ -109,7 +111,7 @@ impl<'a> Page {
 
     pub fn view(&mut self) -> Element<Message> {
         match self {
-            Self::CurrentMedia { current, cover } => Self::current_media(current, cover).into(),
+            Self::CurrentMedia { current, cover, default_cover } => Self::current_media(current, cover, default_cover).into(),
             Self::Settings { refresh_list_state: _ } => self.settings().into(),
         }
     }
@@ -121,13 +123,14 @@ impl<'a> Page {
             .style(style::Container::Background)
     }
 
-    fn current_media(current: &mut Option<anilist::MediaList>, cover: &Option<image::Handle>) -> Container<'a, Message> {
+    fn current_media(current: &mut Option<anilist::MediaList>, cover: &Option<image::Handle>, default_cover: &image::Handle) -> Container<'a, Message> {
         let padding_size = 24;
         let spacing_size = 12;
         let inner_col_space = 6;
         let mut row = Row::<Message>::new().padding(padding_size).spacing(padding_size);
-        if let Some(cover) = cover {
-            row = row.push(image::Image::new(cover.clone()));
+        match cover {
+            Some(cover) => row = row.push(image::Image::new(cover.clone())),
+            None => row = row.push(image::Image::new(default_cover.clone())),
         }
         let mut col = Column::<Message>::new().spacing(spacing_size);
         let title_size = 18;

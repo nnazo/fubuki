@@ -46,7 +46,7 @@ enum Message {
     Authorized(String),
     AuthFailed,
     UserFound(anilist::User),
-    AvatarRetrieved(iced::image::Handle),
+    AvatarRetrieved(image::Handle),
     ListRetrieved {
         anime_list: Option<anilist::MediaListCollection>,
         manga_list: Option<anilist::MediaListCollection>,
@@ -249,7 +249,7 @@ impl Application for App {
                 };
                 self.media = Some(media.clone());
                 match self.page {
-                    components::page::Page::CurrentMedia { current: _, cover: _ } => {
+                    components::page::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
                         self.page.update(components::page::Message::MediaFound(media.clone()));
                     },
                     _ => {}
@@ -259,11 +259,9 @@ impl Application for App {
                     if let None = self.media_cover {
                         if !self.waiting_for_cover {
                             self.waiting_for_cover = true;
-                            println!("i am here");
                             commands.push(Command::perform(ui::util::fetch_image(cover_url), |result| {
                                 let handle = match result {
                                     Ok(handle) => {
-                                        println!("got cover image");
                                         Some(handle)
                                     },
                                     Err(err) => { 
@@ -276,7 +274,6 @@ impl Application for App {
                         }
                     }
                 } else {
-                    println!("no cover");
                     self.page.update(components::page::Message::CoverChange(None));
                 }
                 let token = {
@@ -304,22 +301,20 @@ impl Application for App {
                 self.media = None;
                 self.media_cover = None;
                 match self.page {
-                    components::page::Page::CurrentMedia { current: _, cover: _  } => {
+                    components::page::Page::CurrentMedia { current: _, cover: _, default_cover: _  } => {
                         self.page.update(components::page::Message::MediaNotFound);
                     }
                     _ => {},
                 }
             }
             Message::CoverRetrieved(cover) => {
-                println!("am i ever here..");
                 self.waiting_for_cover = false;
                 self.media_cover = cover.clone();
                 match self.page {
-                    components::page::Page::CurrentMedia{ current: _, cover: _ } => {
-                        println!("uh");
+                    components::page::Page::CurrentMedia{ current: _, cover: _, default_cover: _ } => {
                         self.page.update(components::page::Message::CoverChange(cover));
                     }
-                    _ => {println!("none from cover retrieve")},
+                    _ => {},
                 }
             }
             Message::NavChange(msg) => match msg {
@@ -332,6 +327,7 @@ impl Application for App {
                                 self.page = components::Page::CurrentMedia {
                                     current: self.media.clone(),
                                     cover: self.media_cover.clone(),
+                                    default_cover: image::Handle::from("./res/cover_default.jpg"),
                                 };
                             }
                             _ => {}
@@ -343,7 +339,7 @@ impl Application for App {
                         println!("pressed settings");
                         self.nav.update(msg);
                         match self.page {
-                            components::Page::CurrentMedia { current: _, cover: _  } => {
+                            components::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
                                 self.page = components::Page::Settings { refresh_list_state: button::State::default() };
                             }
                             _ => {}
