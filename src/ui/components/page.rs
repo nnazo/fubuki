@@ -1,10 +1,15 @@
-use iced::{Element, Length, Row, Text, Column, Container, image, button, Button, HorizontalAlignment};
+use iced::{Element, Length, Row, Text, Column, Container, image, button, Button, HorizontalAlignment, Command};
 use crate::{anilist, ui::style};
+
+// Note:
+// The reason I'm using a separate message enum here instead of the Message with the
+// and using the Event trait in the app module is that I need a way of accessing the
+// Page variant itself and the Event trait doesn't let me do that, so I map this
+// message to a Message in app called PageMessage
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    MediaFound(anilist::MediaList),
-    MediaNotFound,
+    MediaChange(Option<anilist::MediaList>),
     CoverChange(Option<image::Handle>),
     RefreshLists,
 }
@@ -85,12 +90,16 @@ impl<'a> Page {
         match self {
             Self::CurrentMedia { current: _, cover: _, default_cover: _ } => {
                 match msg {
-                    Message::MediaFound(media_list) => {
-                        self.replace_current_media(Some(media_list));
-                    }
-                    Message::MediaNotFound => {
-                        self.replace_current_media(None);
-                        self.replace_media_cover(None);
+                    Message::MediaChange(media_list) => {
+                        match media_list {
+                            Some(media_list) => {
+                                self.replace_current_media(Some(media_list));
+                            }
+                            None => {
+                                self.replace_current_media(None);
+                                self.replace_media_cover(None);
+                            }
+                        }
                     }
                     Message::CoverChange(cover) => {
                         match cover {

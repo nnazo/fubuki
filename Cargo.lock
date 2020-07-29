@@ -641,6 +641,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum_dispatch"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8273aa304ee265c9314edf7fa4b5419832c9d72f76ae609ccc614d1a0ac4ca18"
+dependencies = [
+ "once_cell",
+ "proc-macro2 1.0.13",
+ "quote 1.0.6",
+ "syn",
+]
+
+[[package]]
 name = "euclid"
 version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -756,6 +768,7 @@ dependencies = [
  "anyhow",
  "app_dirs2",
  "chrono",
+ "enum_dispatch",
  "iced",
  "lazy_static",
  "oauth2",
