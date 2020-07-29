@@ -120,10 +120,34 @@ impl MediaParser {
     }
 }
 
+use crate::anilist::MediaType;
+
 #[derive(Debug, Clone)]
 pub struct Media {
     pub title: String,
-    pub media_type: crate::anilist::MediaType,
+    pub media_type: MediaType,
     pub progress: Option<f64>,
     pub progress_volumes: Option<f64>,
+}
+
+impl Media {
+    // TODO: Check media format (doujin, movie, etc) when making this string
+    pub fn current_media_string(&self) -> String {
+        match &self.media_type {
+            MediaType::Anime => match self.progress {
+                Some(p) => format!("Watching Episode {}", p),
+                None => String::default(),   
+            }
+            MediaType::Manga => {
+                let mut s = match self.progress_volumes {
+                    Some(p) => format!("Reading Vol. {}", p as i32 + 1),
+                    None => String::from("Reading")
+                };
+                if let Some(p) = self.progress {
+                    s = format!("{} Ch. {}", s, p);
+                }
+                return s;
+            },
+        }
+    }
 }

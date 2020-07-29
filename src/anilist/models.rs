@@ -333,32 +333,32 @@ impl MediaList {
     }
 
     // TODO: Check media format (doujin, movie, etc) when making this string
-    pub fn current_media_string(&self) -> String {
-        match &self.media {
-            Some(media) => match &media.media_type {
-                Some(media_type) => match media_type {
-                    MediaType::Anime => {
-                        if let Some(p) = self.progress {
-                            return format!("Watching Episode {}", p);
-                        }
-                        return String::default();
-                    },
-                    MediaType::Manga => {
-                        let mut s = String::default();
-                        if let Some(p) = self.progress_volumes {
-                            s = format!("Reading Vol. {}", p+1);
-                        }
-                        if let Some(p) = self.progress {
-                            s = format!("{}, Ch. {}", s, p);
-                        }
-                        return s;
-                    },
-                },
-                None => String::default(),
-            },
-            None => String::default(),
-        }
-    }
+    // pub fn current_media_string(&self) -> String {
+    //     match &self.media {
+    //         Some(media) => match &media.media_type {
+    //             Some(media_type) => match media_type {
+    //                 MediaType::Anime => {
+    //                     if let Some(p) = self.progress {
+    //                         return format!("Watching Episode {}", p);
+    //                     }
+    //                     return String::default();
+    //                 },
+    //                 MediaType::Manga => {
+    //                     let mut s = String::default();
+    //                     if let Some(p) = self.progress_volumes {
+    //                         s = format!("Reading Vol. {}", p+1);
+    //                     }
+    //                     if let Some(p) = self.progress {
+    //                         s = format!("{}, Ch. {}", s, p);
+    //                     }
+    //                     return s;
+    //                 },
+    //             },
+    //             None => String::default(),
+    //         },
+    //         None => String::default(),
+    //     }
+    // }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

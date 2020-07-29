@@ -1,5 +1,5 @@
-use iced::{Element, Length, Row, Text, Column, Container, image, button, Button, HorizontalAlignment, Command};
-use crate::{anilist, ui::style};
+use iced::{Element, Length, Row, Text, Column, Container, image, button, Button, HorizontalAlignment};
+use crate::{anilist, ui::style, recognition};
 
 // Note:
 // The reason I'm using a separate message enum here instead of the Message with the
@@ -9,7 +9,7 @@ use crate::{anilist, ui::style};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    MediaChange(Option<anilist::MediaList>),
+    MediaChange(Option<(anilist::MediaList, recognition::Media)>),
     CoverChange(Option<image::Handle>),
     RefreshLists,
 }
@@ -18,7 +18,7 @@ pub enum Message {
 pub enum Page {
     // Loading, -- this should probably not be with these
     CurrentMedia {
-        current: Option<anilist::MediaList>,
+        current: Option<(anilist::MediaList, recognition::Media)>,
         cover: Option<image::Handle>,
         default_cover: image::Handle,
     },
@@ -28,38 +28,15 @@ pub enum Page {
 }
 
 impl Page {
-    fn replace_current_media(&mut self, media_list: Option<anilist::MediaList>) {
+    fn replace_current_media(&mut self, media_list: Option<(anilist::MediaList, recognition::Media)>) {
         match self {
             Page::CurrentMedia { current, cover: _, default_cover: _ } => {
                 match media_list {
-                    Some(media_list) => match current {
-                        Some(curr) => {
-                            let pref_title = |media_list: &anilist::MediaList| match &media_list.media {
-                                Some(media) => media.preferred_title(),
-                                None => None,
-                            };
-                            let same_title = |title, curr_title| title == curr_title;
-                            match pref_title(&media_list) {
-                                Some(title) => {
-                                    match pref_title(curr) {
-                                        Some(curr_title) => {
-                                            if !same_title(title, curr_title) {
-                                                current.replace(media_list);
-                                            }
-                                        },
-                                        None => {},
-                                    }
-                                },
-                                None => {},
-                            }
-                        }
-                        None => {
-                            current.replace(media_list);
-                        },
+                    Some(media) => {
+                        current.replace(media);
                     },
-                    None => current.clone_from(&None::<anilist::MediaList>),
+                    None => current.clone_from(&None::<(anilist::MediaList, recognition::Media)>),
                 }
-                
             }
             _ => {},
         }
@@ -92,8 +69,8 @@ impl<'a> Page {
                 match msg {
                     Message::MediaChange(media_list) => {
                         match media_list {
-                            Some(media_list) => {
-                                self.replace_current_media(Some(media_list));
+                            Some(media) => {
+                                self.replace_current_media(Some(media));
                             }
                             None => {
                                 self.replace_current_media(None);
@@ -132,7 +109,7 @@ impl<'a> Page {
             .style(style::Container::Background)
     }
 
-    fn current_media(current: &mut Option<anilist::MediaList>, cover: &Option<image::Handle>, default_cover: &image::Handle) -> Container<'a, Message> {
+    fn current_media(current: &mut Option<(anilist::MediaList, recognition::Media)>, cover: &Option<image::Handle>, default_cover: &image::Handle) -> Container<'a, Message> {
         let padding_size = 24;
         let spacing_size = 12;
         let inner_col_space = 6;
@@ -145,7 +122,7 @@ impl<'a> Page {
         let title_size = 18;
         let text_size = 14;
         match current {
-            Some(current) => {
+            Some((current, current_detected)) => {
                 let title = match &current.media {
                     Some(media) => match media.preferred_title() {
                         Some(title) => Some(title.clone()),
@@ -157,7 +134,8 @@ impl<'a> Page {
                     Some(title) => col = col.push(Text::new(title).size(title_size)),
                     None => col = col.push(Text::new("Could Not Get Title").size(title_size)),
                 }
-                col = col.push(Text::new(current.current_media_string()).size(text_size));
+                // current.current_media_string();
+                col = col.push(Text::new(current_detected.current_media_string()).size(text_size));
                 if let Some(media) = &mut current.media {
                     if let Some(desc) = media.description() {
                         col = col.push(

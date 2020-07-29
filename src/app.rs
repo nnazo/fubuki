@@ -19,7 +19,7 @@ use iced::{
 #[derive(Default)]
 pub struct App {
     pub waiting_for_cover: bool,
-    pub media: Option<anilist::MediaList>,
+    pub media: Option<(anilist::MediaList, recognition::Media)>,
     pub media_cover: Option<image::Handle>,
     pub nav: components::Nav,
     pub page: components::Page,
@@ -216,9 +216,11 @@ impl Event for SearchResult {
             };
             
             if let Some(media) = media {
+                // TODO: Check if the detected progress is larger than the media's maximum number of episodes/chapters
+                // This is most likely an nth season where the count rolled over
                 let needs_update = media.update_progress(detected_media.progress, detected_media.progress_volumes);
                 let media = media.clone();
-                return app.update(MediaFound(media, needs_update).into());
+                return app.update(MediaFound(media, detected_media, needs_update).into());
             } else {
                 return app.update(MediaNotFound.into());
             }
@@ -230,51 +232,63 @@ impl Event for SearchResult {
 }
 
 #[derive(Debug, Clone)]
-pub struct MediaFound(anilist::MediaList, bool);
+pub struct MediaFound(anilist::MediaList, recognition::Media, bool);
 
 impl Event for MediaFound {
     fn handle(self, app: &mut App) -> Command<Message> {
-        // TODO: If another media is detected while another media is in progress then the cover won't update
-        let MediaFound(media, needs_update) = self;
-        let cover_url = match &media.media {
-            Some(media) => media.cover_image_url(),
-            None => None,
+        let MediaFound(media, detected_media, needs_update) = self;
+        let (cover_url, needs_fetch) = match &media.media {
+            Some(media) => {
+                let url = media.cover_image_url();
+                match &app.media {
+                    Some((old_media, _)) => match &old_media.media {
+                        Some(old_media) => if url == old_media.cover_image_url() {
+                            (url, false)
+                        } else {
+                            (url, true)
+                        },
+                        None => (url, true),
+                    },
+                    None => (url, true),
+                }
+            },
+            None => (None, false),
         };
-        app.media = Some(media.clone());
+
+        app.media = Some((media.clone(), detected_media.clone()));
         match app.page {
             components::page::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
-                app.page.update(components::page::Message::MediaChange(Some(media.clone())));
+                app.page.update(components::page::Message::MediaChange(Some((media.clone(), detected_media))));
             },
             _ => {}
         }
+
         let mut commands = Vec::new();
         if let Some(cover_url) = cover_url {
-            if let None = app.media_cover {
-                if !app.waiting_for_cover {
-                    app.waiting_for_cover = true;
-                    commands.push(Command::perform(ui::util::fetch_image(cover_url), |result| {
-                        let handle = match result {
-                            Ok(handle) => {
-                                Some(handle)
-                            },
-                            Err(err) => { 
-                                eprintln!("could not get cover {}", err);
-                                None
-                            },
-                        };
-                        CoverRetrieved(handle).into()
-                    }));
-                }
+            if !app.waiting_for_cover && needs_fetch {
+                app.waiting_for_cover = true;
+                commands.push(Command::perform(ui::util::fetch_image(cover_url), |result| {
+                    let handle = match result {
+                        Ok(handle) => {
+                            Some(handle)
+                        },
+                        Err(err) => { 
+                            eprintln!("could not get cover {}", err);
+                            None
+                        },
+                    };
+                    CoverRetrieved(handle).into()
+                }));
             }
         } else {
             app.page.update(components::page::Message::CoverChange(None));
         }
+
         let token = {
             let settings = settings::get_settings().read().unwrap();
             settings.anilist.token().clone()
         };
         if needs_update {
-            println!("sending update");
             commands.push(Command::perform(anilist::update_media(token, media), |result| match result {
                 Ok(resp) => {
                     println!("media update succeeded: {:#?}", resp);
@@ -286,7 +300,7 @@ impl Event for MediaFound {
                 }
             }));
         } else {
-            println!("update not needed")
+            println!("update not needed");
         }
         return Command::batch(commands);
     }
