@@ -14,7 +14,6 @@ use iced::{
     Length,
     Subscription,
     image,
-    button,
 };
 
 #[derive(Default)]
@@ -309,46 +308,6 @@ impl Event for MediaNotFound {
         Command::none()
     }
 }
-
-// #[derive(Debug, Clone)]
-// pub struct NavChange(components::nav::Message);
-
-// impl Event for NavChange {
-//     fn handle(self, app: &mut App) -> Command<Message> {
-//         let NavChange(msg) = self;
-//         match msg {
-//             components::nav::Message::CurrentMediaPress { selected } => {
-//                 if !selected {
-//                     println!("pressed media");
-//                     app.nav.update(msg);
-//                     match app.page {
-//                         components::Page::Settings { refresh_list_state: _ } => {
-//                             app.page = components::Page::CurrentMedia {
-//                                 current: app.media.clone(),
-//                                 cover: app.media_cover.clone(),
-//                                 default_cover: image::Handle::from("./res/cover_default.jpg"),
-//                             };
-//                         }
-//                         _ => {}
-//                     }
-//                 }
-//             },
-//             components::nav::Message::SettingsPress { selected } => {
-//                 if !selected {
-//                     println!("pressed settings");
-//                     app.nav.update(msg);
-//                     match app.page {
-//                         components::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
-//                             app.page = components::Page::Settings { refresh_list_state: button::State::default() };
-//                         }
-//                         _ => {}
-//                     }
-//                 }
-//             },
-//         }
-//         Command::none()
-//     }
-// }
 
 #[derive(Debug, Clone)]
 pub struct PageMessage(components::page::Message);

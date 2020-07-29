@@ -14,8 +14,6 @@ pub mod app;
 use app::App;
 use iced::{Application, Settings};
 
-// use graphql_client::GraphQLQuery;
-
 //#![windows_subsystem = "windows"] // Tells windows compiler not to show console window
 
 fn main() {
