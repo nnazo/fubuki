@@ -1,14 +1,60 @@
 use crate::ui::style;
 // use crate::ui::style;
 // use crate::ui::components::*;
-use iced::{button, Button, Element, Length, Row, Text, image, widget::Container, HorizontalAlignment};
+use iced::{button, Button, Element, Length, Row, Text, image, widget::Container, HorizontalAlignment, Command};
+use crate::app::{Event, Message, App};
+
+// AnimeListPress,
+// MangaListPress,
 
 #[derive(Debug, Clone)]
-pub enum Message {
-    // AnimeListPress,
-    // MangaListPress,
-    CurrentMediaPress { selected: bool },
-    SettingsPress { selected: bool },
+pub struct CurrentMediaPress {
+    selected: bool,
+}
+
+impl Event for CurrentMediaPress {
+    fn handle(self, app: &mut App) -> Command<Message> {
+        if !self.selected {
+            println!("pressed media");
+            // app.nav.update(self);
+            // self.selected = true;
+            app.nav.settings_selected = false;
+            app.nav.media_selected = true;
+            match app.page {
+                super::Page::Settings { refresh_list_state: _ } => {
+                    app.page = super::Page::CurrentMedia {
+                        current: app.media.clone(),
+                        cover: app.media_cover.clone(),
+                        default_cover: image::Handle::from("./res/cover_default.jpg"),
+                    };
+                }
+                _ => {}
+            }
+        }
+        Command::none()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SettingsPress {
+    selected: bool,
+}
+
+impl Event for SettingsPress {
+    fn handle(self, app: &mut App) -> Command<Message> {
+        if !self.selected {
+            println!("pressed settings");
+            app.nav.settings_selected = true;
+            app.nav.media_selected = false;
+            match app.page {
+                super::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
+                    app.page = super::Page::Settings { refresh_list_state: button::State::default() };
+                }
+                _ => {}
+            }
+        }
+        Command::none()
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -32,17 +78,8 @@ impl Nav {
         }
     }
 
-    pub fn update(&mut self, message: Message) {
-        match message {
-            Message::CurrentMediaPress { selected: _ } => {
-                self.media_selected = true;
-                self.settings_selected = false;
-            }
-            Message::SettingsPress { selected: _ } => {
-                self.media_selected = false;
-                self.settings_selected = true;
-            },
-        }
+    pub fn update(&mut self, app: &mut App, message: Message) {
+        message.handle(app);
     }
 
     pub fn view(&mut self) -> Element<Message> {
@@ -58,9 +95,9 @@ impl Nav {
             .style(style::Button::Nav {
                 selected: self.media_selected,
             })
-            .on_press(Message::CurrentMediaPress {
+            .on_press(CurrentMediaPress {
                 selected: self.media_selected,
-            });
+            }.into());
 
         let settings = Button::new(
                 &mut self.settings_state, 
@@ -72,9 +109,9 @@ impl Nav {
             .style(style::Button::Nav {
                 selected: self.settings_selected,
             })
-            .on_press(Message::SettingsPress {
+            .on_press(SettingsPress {
                 selected: self.settings_selected,
-            });
+            }.into());
 
         let left_spacer = Container::new(Text::new("")).width(Length::FillPortion(4));
         let right_spacer = Container::new(Text::new("")).width(Length::FillPortion(5));    

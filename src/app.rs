@@ -132,8 +132,8 @@ impl Application for App {
     }
 
     fn view(&mut self) -> Element<'_, Self::Message> {
-        let nav = self.nav.view().map(move |msg| NavChange(msg).into());
-        let page = self.page.view().map(move |msg| Page(msg).into());
+        let nav = self.nav.view(); //.map(move |msg| NavChange(msg).into());
+        let page = self.page.view().map(move |msg| PageMessage(msg).into());
 
         // Scrollable::new(scroll).padding(40).push(Container::new(content.width(Length::Fill).center_x())).into()
         // let media_title = Text::new(&self.media)
@@ -157,6 +157,11 @@ impl Application for App {
     }
 }
 
+use ui::components::{
+    nav::{CurrentMediaPress, SettingsPress}, 
+    // page::{}
+};
+
 #[enum_dispatch]
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -164,8 +169,10 @@ pub enum Message {
     SearchResult,
     MediaFound,
     MediaNotFound,
-    NavChange,
-    Page,
+    // NavChange,
+    CurrentMediaPress,
+    SettingsPress,
+    PageMessage,
     Authorized,
     AuthFailed,
     UserFound,
@@ -175,7 +182,7 @@ pub enum Message {
 }
 
 #[enum_dispatch(Message)]
-pub trait Event: Debug + Send {
+pub trait Event {
     fn handle(self, app: &mut App) -> Command<Message>;
 }
 
@@ -193,7 +200,7 @@ pub struct SearchResult(Option<recognition::Media>);
 
 impl Event for SearchResult {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let media = self.0;
+        let SearchResult(media) = self;
         if let Some(detected_media) = media {
             println!("detected media {:#?}", detected_media);
 
@@ -228,8 +235,8 @@ pub struct MediaFound(anilist::MediaList, bool);
 
 impl Event for MediaFound {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let media = self.0;
-        let needs_update = self.1;
+        // TODO: If another media is detected while another media is in progress then the cover won't update
+        let MediaFound(media, needs_update) = self;
         let cover_url = match &media.media {
             Some(media) => media.cover_image_url(),
             None => None,
@@ -237,7 +244,7 @@ impl Event for MediaFound {
         app.media = Some(media.clone());
         match app.page {
             components::page::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
-                app.page.update(components::page::Message::MediaFound(media.clone()));
+                app.page.update(components::page::Message::MediaChange(Some(media.clone())));
             },
             _ => {}
         }
@@ -295,7 +302,7 @@ impl Event for MediaNotFound {
         app.media_cover = None;
         match app.page {
             components::page::Page::CurrentMedia { current: _, cover: _, default_cover: _  } => {
-                app.page.update(components::page::Message::MediaNotFound);
+                app.page.update(components::page::Message::MediaChange(None));
             }
              _ => {},
         }
@@ -303,52 +310,52 @@ impl Event for MediaNotFound {
     }
 }
 
+// #[derive(Debug, Clone)]
+// pub struct NavChange(components::nav::Message);
+
+// impl Event for NavChange {
+//     fn handle(self, app: &mut App) -> Command<Message> {
+//         let NavChange(msg) = self;
+//         match msg {
+//             components::nav::Message::CurrentMediaPress { selected } => {
+//                 if !selected {
+//                     println!("pressed media");
+//                     app.nav.update(msg);
+//                     match app.page {
+//                         components::Page::Settings { refresh_list_state: _ } => {
+//                             app.page = components::Page::CurrentMedia {
+//                                 current: app.media.clone(),
+//                                 cover: app.media_cover.clone(),
+//                                 default_cover: image::Handle::from("./res/cover_default.jpg"),
+//                             };
+//                         }
+//                         _ => {}
+//                     }
+//                 }
+//             },
+//             components::nav::Message::SettingsPress { selected } => {
+//                 if !selected {
+//                     println!("pressed settings");
+//                     app.nav.update(msg);
+//                     match app.page {
+//                         components::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
+//                             app.page = components::Page::Settings { refresh_list_state: button::State::default() };
+//                         }
+//                         _ => {}
+//                     }
+//                 }
+//             },
+//         }
+//         Command::none()
+//     }
+// }
+
 #[derive(Debug, Clone)]
-pub struct NavChange(components::nav::Message);
+pub struct PageMessage(components::page::Message);
 
-impl Event for NavChange {
+impl Event for PageMessage {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let msg = self.0;
-        match msg {
-            components::nav::Message::CurrentMediaPress { selected } => {
-                if !selected {
-                    println!("pressed media");
-                    app.nav.update(msg);
-                    match app.page {
-                        components::Page::Settings { refresh_list_state: _ } => {
-                            app.page = components::Page::CurrentMedia {
-                                current: app.media.clone(),
-                                cover: app.media_cover.clone(),
-                                default_cover: image::Handle::from("./res/cover_default.jpg"),
-                            };
-                        }
-                        _ => {}
-                    }
-                }
-            },
-            components::nav::Message::SettingsPress { selected } => {
-                if !selected {
-                    println!("pressed settings");
-                    app.nav.update(msg);
-                    match app.page {
-                        components::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
-                            app.page = components::Page::Settings { refresh_list_state: button::State::default() };
-                        }
-                        _ => {}
-                    }
-                }
-            },
-        }
-        Command::none()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Page(components::page::Message);
-
-impl Event for Page {
-    fn handle(self, app: &mut App) -> Command<Message> {
-        let msg = self.0;
+        let PageMessage(msg) = self;
         match msg {
             components::page::Message::RefreshLists => {
                 let settings = settings::SETTINGS.read().unwrap();
@@ -370,7 +377,7 @@ pub struct Authorized(String);
 
 impl Event for Authorized {
     fn handle(self, _app: &mut App) -> Command<Message> {
-        let token = self.0;
+        let Authorized(token) = self;
         let mut settings = settings::get_settings().write().unwrap();
         settings.anilist.save_token(token.as_str());
         if let Err(err) = settings.anilist.save() {
@@ -394,7 +401,7 @@ pub struct UserFound(anilist::User);
 
 impl Event for UserFound {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let user = self.0;
+        let UserFound(user) = self;
         app.user = Some(user);
         println!("got user {:#?}", app.user);
 
@@ -421,7 +428,7 @@ pub struct AvatarRetrieved(image::Handle);
 
 impl Event for AvatarRetrieved {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let handle = self.0;
+        let AvatarRetrieved(handle) = self;
         println!("got avatar");
         app.nav.set_avatar(handle);
                 
@@ -458,7 +465,7 @@ pub struct CoverRetrieved(Option<image::Handle>);
 
 impl Event for CoverRetrieved {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let cover = self.0;
+        let CoverRetrieved(cover) = self;
         app.waiting_for_cover = false;
         app.media_cover = cover.clone();
         match app.page {
