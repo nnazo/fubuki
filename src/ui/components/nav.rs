@@ -16,20 +16,9 @@ impl Event for CurrentMediaPress {
     fn handle(self, app: &mut App) -> Command<Message> {
         if !self.selected {
             println!("pressed media");
-            // app.nav.update(self);
-            // self.selected = true;
             app.nav.settings_selected = false;
             app.nav.media_selected = true;
-            match app.page {
-                super::Page::Settings { refresh_list_state: _ } => {
-                    app.page = super::Page::CurrentMedia {
-                        current: app.media.clone(),
-                        cover: app.media_cover.clone(),
-                        default_cover: image::Handle::from("./res/cover_default.jpg"),
-                    };
-                }
-                _ => {}
-            }
+            app.page.change_page(super::Page::CurrentMedia);
         }
         Command::none()
     }
@@ -46,12 +35,7 @@ impl Event for SettingsPress {
             println!("pressed settings");
             app.nav.settings_selected = true;
             app.nav.media_selected = false;
-            match app.page {
-                super::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
-                    app.page = super::Page::Settings { refresh_list_state: button::State::default() };
-                }
-                _ => {}
-            }
+            app.page.change_page(super::Page::Settings);
         }
         Command::none()
     }

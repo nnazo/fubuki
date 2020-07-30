@@ -22,7 +22,7 @@ pub struct App {
     pub media: Option<(anilist::MediaList, recognition::Media)>,
     pub media_cover: Option<image::Handle>,
     pub nav: components::Nav,
-    pub page: components::Page,
+    pub page: components::PageContainer,
     pub user: Option<anilist::User>,
     pub anime_list: Option<anilist::MediaListCollection>,
     pub manga_list: Option<anilist::MediaListCollection>,
@@ -59,7 +59,7 @@ impl App {
         })
     }
 
-    fn query_user_lists(token: String, user_id: i32) -> Command<Message> {
+    pub fn query_user_lists(token: String, user_id: i32) -> Command<Message> {
         Command::perform(
             anilist::query_media_lists(Some(token), user_id),
             |(anime_result, manga_result)| {
@@ -103,7 +103,7 @@ impl Application for App {
             media: None,
             media_cover: None,
             nav: components::Nav::new(),
-            page: components::Page::default(),
+            page: components::PageContainer::default(),
             user: None,
             anime_list: None,
             manga_list: None,
@@ -132,7 +132,7 @@ impl Application for App {
 
     fn view(&mut self) -> Element<'_, Self::Message> {
         let nav = self.nav.view(); //.map(move |msg| NavChange(msg).into());
-        let page = self.page.view().map(move |msg| PageMessage(msg).into());
+        let page = self.page.view(); //.map(move |msg| PageMessage(msg).into());
 
         // Scrollable::new(scroll).padding(40).push(Container::new(content.width(Length::Fill).center_x())).into()
         // let media_title = Text::new(&self.media)
@@ -158,7 +158,7 @@ impl Application for App {
 
 use ui::components::{
     nav::{CurrentMediaPress, SettingsPress}, 
-    // page::{}
+    page::{CoverChange, MediaChange, RefreshLists}
 };
 
 #[enum_dispatch]
@@ -168,16 +168,29 @@ pub enum Message {
     SearchResult,
     MediaFound,
     MediaNotFound,
-    // NavChange,
-    CurrentMediaPress,
-    SettingsPress,
-    PageMessage,
     Authorized,
     AuthFailed,
     UserFound,
     AvatarRetrieved,
     ListRetrieved,
     CoverRetrieved,
+
+    // Nav
+    CurrentMediaPress,
+    SettingsPress,
+    
+    // Page
+    CoverChange,
+    MediaChange,
+    RefreshLists,
+}
+
+pub fn forward_message(msg: Message) -> Command<Message> {
+    Command::perform(nothing(msg), |msg| msg)
+}
+
+async fn nothing(msg: Message) -> Message {
+    msg
 }
 
 #[enum_dispatch(Message)]
@@ -256,14 +269,10 @@ impl Event for MediaFound {
         };
 
         app.media = Some((media.clone(), detected_media.clone()));
-        match app.page {
-            components::page::Page::CurrentMedia { current: _, cover: _, default_cover: _ } => {
-                app.page.update(components::page::Message::MediaChange(Some((media.clone(), detected_media))));
-            },
-            _ => {}
-        }
 
-        let mut commands = Vec::new();
+        let msg = MediaChange(Some((media.clone(), detected_media))).into();
+        let mut commands = vec![forward_message(msg)];
+
         if let Some(cover_url) = cover_url {
             if !app.waiting_for_cover && needs_fetch {
                 app.waiting_for_cover = true;
@@ -281,7 +290,8 @@ impl Event for MediaFound {
                 }));
             }
         } else {
-            app.page.update(components::page::Message::CoverChange(None));
+            let msg = CoverChange(None).into();
+            commands.push(forward_message(msg));
         }
 
         let token = {
@@ -313,35 +323,10 @@ impl Event for MediaNotFound {
     fn handle(self, app: &mut App) -> Command<Message> {
         app.media = None;
         app.media_cover = None;
-        match app.page {
-            components::page::Page::CurrentMedia { current: _, cover: _, default_cover: _  } => {
-                app.page.update(components::page::Message::MediaChange(None));
-            }
-             _ => {},
-        }
-        Command::none()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PageMessage(components::page::Message);
-
-impl Event for PageMessage {
-    fn handle(self, app: &mut App) -> Command<Message> {
-        let PageMessage(msg) = self;
-        match msg {
-            components::page::Message::RefreshLists => {
-                let settings = settings::SETTINGS.read().unwrap();
-                let token = settings.anilist.token().clone();
-                if let Some(token) = token {
-                    if let Some(user) = &app.user {
-                        return App::query_user_lists(token, user.id);
-                    }
-                }
-            }
-            _ => {}
-        }
-        Command::none()
+        Command::batch(vec![
+            forward_message(MediaChange(None).into()),
+            forward_message(CoverChange(None).into())
+        ])
     }
 }
 
@@ -441,12 +426,6 @@ impl Event for CoverRetrieved {
         let CoverRetrieved(cover) = self;
         app.waiting_for_cover = false;
         app.media_cover = cover.clone();
-        match app.page {
-            components::page::Page::CurrentMedia{ current: _, cover: _, default_cover: _ } => {
-                app.page.update(components::page::Message::CoverChange(cover));
-            }
-            _ => {},
-        }
-        Command::none()
+        forward_message(CoverChange(cover).into())
     }
 }
