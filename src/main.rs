@@ -6,10 +6,10 @@ extern crate winapi;
 extern crate lazy_static;
 
 pub mod anilist;
+pub mod app;
 pub mod recognition;
 pub mod settings;
 pub mod ui;
-pub mod app;
 
 use app::App;
 use iced::{Application, Settings};

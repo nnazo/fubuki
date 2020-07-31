@@ -136,18 +136,18 @@ impl Media {
         match &self.media_type {
             MediaType::Anime => match self.progress {
                 Some(p) => format!("Watching Episode {}", p),
-                None => String::default(),   
-            }
+                None => String::default(),
+            },
             MediaType::Manga => {
                 let mut s = match self.progress_volumes {
                     Some(p) => format!("Reading Vol. {}", p as i32 + 1),
-                    None => String::from("Reading")
+                    None => String::from("Reading"),
                 };
                 if let Some(p) = self.progress {
                     s = format!("{} Ch. {}", s, p);
                 }
                 return s;
-            },
+            }
         }
     }
 }

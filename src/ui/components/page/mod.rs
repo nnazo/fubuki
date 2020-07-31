@@ -1,5 +1,5 @@
-use iced::{Element, Length, Row, Container};
-use crate::{ui::style, app::Message};
+use crate::{app::Message, ui::style};
+use iced::{Container, Element, Length, Row};
 
 mod settings;
 pub use settings::*;
@@ -10,7 +10,7 @@ pub use current_media::*;
 #[derive(Debug, Clone)]
 pub enum Page {
     CurrentMedia,
-    Settings
+    Settings,
 }
 
 impl Default for Page {

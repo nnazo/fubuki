@@ -1,6 +1,9 @@
-use iced::{Element, Text, Column, button, Button, HorizontalAlignment, Command};
-use crate::{ui::style, app::{App, Event, Message}};
 use super::PageContainer;
+use crate::{
+    app::{App, Event, Message},
+    ui::style,
+};
+use iced::{button, Button, Column, Command, Element, HorizontalAlignment, Text};
 
 #[derive(Debug, Clone, Default)]
 pub struct SettingsPage {
@@ -11,43 +14,48 @@ pub struct SettingsPage {
 
 impl SettingsPage {
     pub fn update(&mut self, _msg: Message) {}
-    
+
     pub fn view(&mut self) -> Element<Message> {
         let mut col = Column::new().padding(24).spacing(12);
         let text_size = 14;
         let button_padding = 12;
 
         if self.logged_in {
-            col = col.push(Button::new(
-                &mut self.refresh_list_state,
-                Text::new("Refresh Lists")
-                    .size(text_size)
-                    .horizontal_alignment(HorizontalAlignment::Center)
-            )
-            .padding(button_padding)
-            .style(style::Button::Accent)
-            .on_press(RefreshLists.into())
+            col = col.push(
+                Button::new(
+                    &mut self.refresh_list_state,
+                    Text::new("Refresh Lists")
+                        .size(text_size)
+                        .horizontal_alignment(HorizontalAlignment::Center),
+                )
+                .padding(button_padding)
+                .style(style::Button::Accent)
+                .on_press(RefreshLists.into()),
             );
-    
-            col = col.push(Button::new(
-                &mut self.logout_state,
-                Text::new("Logout")
-                    .size(text_size)
-                    .horizontal_alignment(HorizontalAlignment::Center)
-            )
-            .padding(button_padding)
-            .style(style::Button::Danger)
-            .on_press(Logout.into()));
+
+            col = col.push(
+                Button::new(
+                    &mut self.logout_state,
+                    Text::new("Logout")
+                        .size(text_size)
+                        .horizontal_alignment(HorizontalAlignment::Center),
+                )
+                .padding(button_padding)
+                .style(style::Button::Danger)
+                .on_press(Logout.into()),
+            );
         } else {
-            col = col.push(Button::new(
-                &mut self.logout_state,
-                Text::new("Login")
-                    .size(text_size)
-                    .horizontal_alignment(HorizontalAlignment::Center)
-            )
-            .padding(button_padding)
-            .style(style::Button::Accent)
-            .on_press(Login.into()));
+            col = col.push(
+                Button::new(
+                    &mut self.logout_state,
+                    Text::new("Login")
+                        .size(text_size)
+                        .horizontal_alignment(HorizontalAlignment::Center),
+                )
+                .padding(button_padding)
+                .style(style::Button::Accent)
+                .on_press(Login.into()),
+            );
         }
 
         PageContainer::container(col.into()).into()
@@ -77,10 +85,10 @@ impl Event for Logout {
     fn handle(self, app: &mut App) -> Command<Message> {
         let mut settings = crate::settings::SETTINGS.write().unwrap();
         match settings.anilist.forget_token() {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err) => {
                 eprintln!("could not forget token: {}", err);
-            },
+            }
         };
         app.user = None;
         app.anime_list = None;

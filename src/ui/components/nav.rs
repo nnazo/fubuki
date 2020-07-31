@@ -1,8 +1,11 @@
 use crate::ui::style;
 // use crate::ui::style;
 // use crate::ui::components::*;
-use iced::{button, Button, Element, Length, Row, Text, image, widget::Container, HorizontalAlignment, Command};
-use crate::app::{Event, Message, App};
+use crate::app::{App, Event, Message};
+use iced::{
+    button, image, widget::Container, Button, Command, Element, HorizontalAlignment, Length, Row,
+    Text,
+};
 
 // AnimeListPress,
 // MangaListPress,
@@ -70,35 +73,41 @@ impl Nav {
         let text_size = 18;
         let padding_size = 16;
         let media = Button::new(
-                &mut self.media_state, 
-                Text::new("Current Media")
-                    .size(text_size)
-                    .horizontal_alignment(HorizontalAlignment::Center)
-            )
-            .padding(padding_size)
-            .style(style::Button::Nav {
+            &mut self.media_state,
+            Text::new("Current Media")
+                .size(text_size)
+                .horizontal_alignment(HorizontalAlignment::Center),
+        )
+        .padding(padding_size)
+        .style(style::Button::Nav {
+            selected: self.media_selected,
+        })
+        .on_press(
+            CurrentMediaPress {
                 selected: self.media_selected,
-            })
-            .on_press(CurrentMediaPress {
-                selected: self.media_selected,
-            }.into());
+            }
+            .into(),
+        );
 
         let settings = Button::new(
-                &mut self.settings_state, 
-                Text::new("Settings")
-                    .size(text_size)
-                    .horizontal_alignment(HorizontalAlignment::Center),
-            )
-            .padding(padding_size)
-            .style(style::Button::Nav {
+            &mut self.settings_state,
+            Text::new("Settings")
+                .size(text_size)
+                .horizontal_alignment(HorizontalAlignment::Center),
+        )
+        .padding(padding_size)
+        .style(style::Button::Nav {
+            selected: self.settings_selected,
+        })
+        .on_press(
+            SettingsPress {
                 selected: self.settings_selected,
-            })
-            .on_press(SettingsPress {
-                selected: self.settings_selected,
-            }.into());
+            }
+            .into(),
+        );
 
         let left_spacer = Container::new(Text::new("")).width(Length::FillPortion(4));
-        let right_spacer = Container::new(Text::new("")).width(Length::FillPortion(5));    
+        let right_spacer = Container::new(Text::new("")).width(Length::FillPortion(5));
 
         let avatar = match &self.avatar {
             Some(avatar) => Some(image::Image::new(avatar.clone())),
@@ -116,7 +125,7 @@ impl Nav {
             .push(media)
             .push(settings)
             .push(right_spacer);
-        
+
         Container::new(nav)
             .style(style::Container::NavBackground)
             .into()

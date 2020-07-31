@@ -1,5 +1,5 @@
-use serde::{self, Deserialize, Serialize};
 use chrono::{offset::Local, NaiveDate};
+use serde::{self, Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -14,9 +14,7 @@ pub struct User {
 impl User {
     pub fn get_avatar_url(&self) -> Option<String> {
         match &self.avatar {
-            Some(avatar) => {
-                avatar.medium.clone()
-            },
+            Some(avatar) => avatar.medium.clone(),
             None => None,
         }
     }
@@ -91,12 +89,15 @@ impl MediaListCollection {
         found_entry
     }
 
-    fn search_entries<'a>(list_group: Option<&'a mut MediaListGroup>, search: &str) -> (Option<&'a mut MediaList>, f64) {
+    fn search_entries<'a>(
+        list_group: Option<&'a mut MediaListGroup>,
+        search: &str,
+    ) -> (Option<&'a mut MediaList>, f64) {
         let entries = match list_group.and_then(|list_group| list_group.entries.as_mut()) {
             Some(entries) => entries,
             None => return (None, 0.0),
         };
-        
+
         let mut found_entries = Vec::new();
         for entry in entries {
             let (entry, sim) = Self::entry_matching_search(entry, search);
@@ -117,8 +118,11 @@ impl MediaListCollection {
         }
         (found_entry, max_sim)
     }
-    
-    fn entry_matching_search<'a>(entry: &'a mut Option<MediaList>, search: &str) -> (Option<&'a mut MediaList>, f64) {
+
+    fn entry_matching_search<'a>(
+        entry: &'a mut Option<MediaList>,
+        search: &str,
+    ) -> (Option<&'a mut MediaList>, f64) {
         let entry = entry.as_mut();
         if let Some(entry) = entry {
             let media = entry.media.as_ref();
@@ -140,19 +144,18 @@ impl Media {
     pub fn all_titles(&self) -> Vec<&String> {
         let mut titles = Vec::new();
         if let Some(title) = &self.title {
-            let t: [Option<&String>; 4] = [title.romaji.as_ref(), title.user_preferred.as_ref(), title.native.as_ref(), title.english.as_ref()];
-            let t: Vec<&String> = t
-                .iter()
-                .filter_map(|item| *item)
-                .collect();
+            let t: [Option<&String>; 4] = [
+                title.romaji.as_ref(),
+                title.user_preferred.as_ref(),
+                title.native.as_ref(),
+                title.english.as_ref(),
+            ];
+            let t: Vec<&String> = t.iter().filter_map(|item| *item).collect();
             titles = itertools::chain(titles, t).collect();
         }
-        
+
         if let Some(synonyms) = &self.synonyms {
-            let syn: Vec<&String> = synonyms
-                .iter()
-                .filter_map(|title| title.as_ref())
-                .collect();
+            let syn: Vec<&String> = synonyms.iter().filter_map(|title| title.as_ref()).collect();
             titles = itertools::chain(titles, syn).collect();
         }
         titles
@@ -168,7 +171,8 @@ impl Media {
 
     pub fn description(&mut self) -> Option<String> {
         use once_cell::sync::Lazy;
-        static HTML_REGEX: Lazy<Result<regex::Regex, regex::Error>> = Lazy::new(|| regex::Regex::new("<.+?>"));
+        static HTML_REGEX: Lazy<Result<regex::Regex, regex::Error>> =
+            Lazy::new(|| regex::Regex::new("<.+?>"));
         if let Some(desc) = &mut self.description {
             *desc = desc.replace("<br>", "\n");
             *desc = desc.replace("<br/>", "\n");
@@ -176,8 +180,8 @@ impl Media {
             match HTML_REGEX.as_ref() {
                 Ok(html_regex) => {
                     *desc = html_regex.replace_all(desc, "").into();
-                },
-                _ => {},
+                }
+                _ => {}
             }
             self.description.clone()
         } else {
@@ -224,9 +228,21 @@ pub struct MediaList {
 }
 
 impl MediaList {
-    pub fn update_progress(&mut self, progress: Option<f64>, progress_volumes: Option<f64>) -> bool {
-        let media = if let Some(media) = &mut self.media { media } else { return false };
-        let media_type = if let Some(media_type) = &media.media_type { media_type } else { return false };
+    pub fn update_progress(
+        &mut self,
+        progress: Option<f64>,
+        progress_volumes: Option<f64>,
+    ) -> bool {
+        let media = if let Some(media) = &mut self.media {
+            media
+        } else {
+            return false;
+        };
+        let media_type = if let Some(media_type) = &media.media_type {
+            media_type
+        } else {
+            return false;
+        };
         let mut updated = false;
         match media_type {
             MediaType::Anime => {
@@ -242,11 +258,11 @@ impl MediaList {
                         } else {
                             episodes
                         }
-                    },
+                    }
                     None => progress.unwrap_or_default() as i32,
                 };
                 self.progress = Some(episodes);
-            },
+            }
             MediaType::Manga => {
                 let chapters = match self.progress {
                     Some(chapters) => {
@@ -260,7 +276,7 @@ impl MediaList {
                         } else {
                             chapters
                         }
-                    },
+                    }
                     None => progress.unwrap_or_default() as i32,
                 };
 
@@ -276,25 +292,28 @@ impl MediaList {
                         } else {
                             volumes
                         }
-                    },
+                    }
                     None => progress_volumes.unwrap_or_default() as i32,
                 };
 
                 self.progress = Some(chapters);
                 self.progress_volumes = Some(volumes);
-            },
+            }
         }
 
-        if updated && self.progress.is_some(){
+        if updated && self.progress.is_some() {
             let progress = self.progress.unwrap();
             if progress == 1 && self.status.is_some() {
                 if let Some(status) = &mut self.status {
                     match status {
-                        MediaListStatus::Current | MediaListStatus::Planning | MediaListStatus::Dropped | MediaListStatus::Paused => {
+                        MediaListStatus::Current
+                        | MediaListStatus::Planning
+                        | MediaListStatus::Dropped
+                        | MediaListStatus::Paused => {
                             *status = MediaListStatus::Current;
                             self.started_at = Some(FuzzyDate::today_local());
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -308,7 +327,7 @@ impl MediaList {
                                     self.completed_at = Some(FuzzyDate::today_local());
                                 }
                             }
-                        },
+                        }
                         MediaType::Manga => {
                             if let Some(chapters) = media.chapters {
                                 if progress == chapters {
@@ -322,7 +341,7 @@ impl MediaList {
                                     self.completed_at = Some(FuzzyDate::today_local());
                                 }
                             }
-                        },
+                        }
                     }
                 }
             }

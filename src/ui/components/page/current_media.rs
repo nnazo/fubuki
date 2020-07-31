@@ -1,6 +1,10 @@
-use iced::{Element, Row, Text, Column, image, Command};
-use crate::{anilist, recognition, app::{App, Event, Message}};
 use super::PageContainer;
+use crate::{
+    anilist,
+    app::{App, Event, Message},
+    recognition,
+};
+use iced::{image, Column, Command, Element, Row, Text};
 
 #[derive(Debug, Clone)]
 pub struct CurrentMediaPage {
@@ -16,7 +20,9 @@ impl CurrentMediaPage {
         let padding_size = 24;
         let spacing_size = 12;
         let inner_col_space = 6;
-        let mut row = Row::<Message>::new().padding(padding_size).spacing(padding_size);
+        let mut row = Row::<Message>::new()
+            .padding(padding_size)
+            .spacing(padding_size);
         match &mut self.cover {
             Some(cover) => row = row.push(image::Image::new(cover.clone())),
             None => row = row.push(image::Image::new(self.default_cover.clone())),
@@ -45,24 +51,27 @@ impl CurrentMediaPage {
                             Column::new()
                                 .spacing(inner_col_space)
                                 .push(Text::new("Description:").size(text_size))
-                                .push(Text::new(desc.clone()).size(text_size))
-                        );    
+                                .push(Text::new(desc.clone()).size(text_size)),
+                        );
                     }
                 }
-            },
+            }
             None => {
                 row = row.push(Text::new("No Media Detected").size(title_size));
-            },
+            }
         }
         PageContainer::container(row.push(col).into()).into()
     }
-    
-    pub fn set_current_media(&mut self, media_list: Option<(anilist::MediaList, recognition::Media)>) {
+
+    pub fn set_current_media(
+        &mut self,
+        media_list: Option<(anilist::MediaList, recognition::Media)>,
+    ) {
         self.current = media_list;
     }
 
     pub fn set_media_cover(&mut self, new_cover: Option<image::Handle>) {
-        // self.cover.clone_from(&new_cover); 
+        // self.cover.clone_from(&new_cover);
         self.cover = new_cover;
     }
 }

@@ -1,4 +1,4 @@
-use super::models::{MediaListCollection, MediaType, User, MediaList};
+use super::models::{MediaList, MediaListCollection, MediaType, User};
 use anyhow::{anyhow, Result};
 use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize};
@@ -139,7 +139,10 @@ pub async fn query_user(token: Option<String>) -> Result<QueryResponse<ViewerRes
     query_from_file("./res/graphql/user.gql", &None, token).await
 }
 
-pub async fn update_media(token: Option<String>, media: MediaList) -> Result<QueryResponse<SaveMediaListEntryResponse>> {
+pub async fn update_media(
+    token: Option<String>,
+    media: MediaList,
+) -> Result<QueryResponse<SaveMediaListEntryResponse>> {
     let variables = json!({
         "id": media.id,
         "status": media.status,

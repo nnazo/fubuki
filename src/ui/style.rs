@@ -27,22 +27,18 @@ impl button::StyleSheet for Button {
                         ..button::Style::default()
                     }
                 }
+            }
+            Button::Accent => button::Style {
+                background: Some(Background::Color(Color::from_rgb8(61u8, 180u8, 242u8))),
+                border_radius: 4,
+                text_color: Color::from_rgb8(255u8, 255u8, 255u8),
+                ..button::Style::default()
             },
-            Button::Accent => {
-                button::Style {
-                    background: Some(Background::Color(Color::from_rgb8(61u8, 180u8, 242u8))),
-                    border_radius: 4,
-                    text_color: Color::from_rgb8(255u8, 255u8, 255u8),
-                    ..button::Style::default()
-                }
-            },
-            Button::Danger => {
-                button::Style {
-                    background: Some(Background::Color(Color::from_rgb8(189u8, 80u8, 102u8))),
-                    border_radius: 4,
-                    text_color: Color::from_rgb8(255u8, 255u8, 255u8),
-                    ..button::Style::default()
-                }
+            Button::Danger => button::Style {
+                background: Some(Background::Color(Color::from_rgb8(189u8, 80u8, 102u8))),
+                border_radius: 4,
+                text_color: Color::from_rgb8(255u8, 255u8, 255u8),
+                ..button::Style::default()
             },
         }
     }
@@ -51,11 +47,13 @@ impl button::StyleSheet for Button {
         let active = self.active();
         button::Style {
             text_color: match self {
-                Button::Nav { selected } => if !selected {
-                    Color::from_rgb8(144u8, 168u8, 191u8)
-                } else {
-                    active.text_color
-                },
+                Button::Nav { selected } => {
+                    if !selected {
+                        Color::from_rgb8(144u8, 168u8, 191u8)
+                    } else {
+                        active.text_color
+                    }
+                }
                 Button::Accent => Color::from_rgb8(255u8, 255u8, 255u8),
                 Button::Danger => Color::from_rgb8(255u8, 255u8, 255u8),
             },

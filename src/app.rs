@@ -1,10 +1,8 @@
 use crate::*;
-use recognition::MediaParser;
-use ui::{components, style};
 use enum_dispatch::enum_dispatch;
-use std::fmt::Debug;
 use iced::{
     executor,
+    image,
     time,
     Application,
     Column, // Text, // HorizontalAlignment, VerticalAlignment,
@@ -13,8 +11,10 @@ use iced::{
     Element,
     Length,
     Subscription,
-    image,
 };
+use recognition::MediaParser;
+use std::fmt::Debug;
+use ui::{components, style};
 
 #[derive(Default)]
 pub struct App {
@@ -30,23 +30,20 @@ pub struct App {
 
 impl App {
     fn query_user(token: String) -> Command<Message> {
-        Command::perform(
-            anilist::query_user(Some(token)),
-            |result| match result {
-                Ok(resp) => {
-                    if let Some(viewer_resp) = resp.data {
-                        if let Some(user) = viewer_resp.viewer {
-                            return UserFound(user).into();
-                        }
+        Command::perform(anilist::query_user(Some(token)), |result| match result {
+            Ok(resp) => {
+                if let Some(viewer_resp) = resp.data {
+                    if let Some(user) = viewer_resp.viewer {
+                        return UserFound(user).into();
                     }
-                    AuthFailed.into()
                 }
-                Err(err) => {
-                    eprintln!("user query failed: {}", err);
-                    AuthFailed.into()
-                }
-            },
-        )
+                AuthFailed.into()
+            }
+            Err(err) => {
+                eprintln!("user query failed: {}", err);
+                AuthFailed.into()
+            }
+        })
     }
 
     pub fn auth() -> Command<Message> {
@@ -86,7 +83,8 @@ impl App {
                 ListRetrieved {
                     anime_list,
                     manga_list,
-                }.into()
+                }
+                .into()
             },
         )
     }
@@ -113,7 +111,11 @@ impl Application for App {
                 println!("already authorized");
                 Self::query_user(token.clone())
             }
-            None => /*Self::auth()*/Command::none(),
+            None =>
+            /*Self::auth()*/
+            {
+                Command::none()
+            }
         };
         (app, command)
     }
@@ -157,8 +159,8 @@ impl Application for App {
 }
 
 use ui::components::{
-    nav::{CurrentMediaPress, SettingsPress}, 
-    page::{CoverChange, MediaChange, RefreshLists, Logout, Login}
+    nav::{CurrentMediaPress, SettingsPress},
+    page::{CoverChange, Login, Logout, MediaChange, RefreshLists},
 };
 
 #[enum_dispatch]
@@ -178,7 +180,7 @@ pub enum Message {
     // Nav
     CurrentMediaPress,
     SettingsPress,
-    
+
     // Page
     CoverChange,
     MediaChange,
@@ -205,7 +207,9 @@ pub struct SearchMedia;
 
 impl Event for SearchMedia {
     fn handle(self, _app: &mut App) -> Command<Message> {
-        Command::perform(MediaParser::detect_media(), |media| SearchResult(media).into())
+        Command::perform(MediaParser::detect_media(), |media| {
+            SearchResult(media).into()
+        })
     }
 }
 
@@ -229,18 +233,19 @@ impl Event for SearchResult {
                     None => None,
                 }
             };
-            
+
             if let Some(media) = media {
                 // TODO: Check if the detected progress is larger than the media's maximum number of episodes/chapters
                 // This is most likely an nth season where the count rolled over
-                let needs_update = media.update_progress(detected_media.progress, detected_media.progress_volumes);
+                let needs_update =
+                    media.update_progress(detected_media.progress, detected_media.progress_volumes);
                 let media = media.clone();
                 return app.update(MediaFound(media, detected_media, needs_update).into());
             } else {
                 return app.update(MediaNotFound.into());
             }
         } else {
-            return app.update(MediaNotFound.into())
+            return app.update(MediaNotFound.into());
         }
         // Command::none()
     }
@@ -257,16 +262,18 @@ impl Event for MediaFound {
                 let url = media.cover_image_url();
                 match &app.media {
                     Some((old_media, _)) => match &old_media.media {
-                        Some(old_media) => if url == old_media.cover_image_url() {
-                            (url, false)
-                        } else {
-                            (url, true)
-                        },
+                        Some(old_media) => {
+                            if url == old_media.cover_image_url() {
+                                (url, false)
+                            } else {
+                                (url, true)
+                            }
+                        }
                         None => (url, true),
                     },
                     None => (url, true),
                 }
-            },
+            }
             None => (None, false),
         };
 
@@ -278,18 +285,19 @@ impl Event for MediaFound {
         if let Some(cover_url) = cover_url {
             if !app.waiting_for_cover && needs_fetch {
                 app.waiting_for_cover = true;
-                commands.push(Command::perform(ui::util::fetch_image(cover_url), |result| {
-                    let handle = match result {
-                        Ok(handle) => {
-                            Some(handle)
-                        },
-                        Err(err) => { 
-                            eprintln!("could not get cover {}", err);
-                            None
-                        },
-                    };
-                    CoverRetrieved(handle).into()
-                }));
+                commands.push(Command::perform(
+                    ui::util::fetch_image(cover_url),
+                    |result| {
+                        let handle = match result {
+                            Ok(handle) => Some(handle),
+                            Err(err) => {
+                                eprintln!("could not get cover {}", err);
+                                None
+                            }
+                        };
+                        CoverRetrieved(handle).into()
+                    },
+                ));
             }
         } else {
             let msg = CoverChange(None).into();
@@ -301,16 +309,19 @@ impl Event for MediaFound {
             settings.anilist.token().clone()
         };
         if needs_update {
-            commands.push(Command::perform(anilist::update_media(token, media), |result| match result {
-                Ok(resp) => {
-                    println!("media update succeeded: {:#?}", resp);
-                    AuthFailed.into()
+            commands.push(Command::perform(
+                anilist::update_media(token, media),
+                |result| match result {
+                    Ok(resp) => {
+                        println!("media update succeeded: {:#?}", resp);
+                        AuthFailed.into()
+                    }
+                    Err(err) => {
+                        println!("media update failed: {}", err);
+                        AuthFailed.into()
+                    }
                 },
-                Err(err) => {
-                    println!("media update failed: {}", err);
-                    AuthFailed.into()
-                }
-            }));
+            ));
         } else {
             println!("update not needed");
         }
@@ -327,7 +338,7 @@ impl Event for MediaNotFound {
         app.media_cover = None;
         Command::batch(vec![
             forward_message(MediaChange(None).into()),
-            forward_message(CoverChange(None).into())
+            forward_message(CoverChange(None).into()),
         ])
     }
 }
@@ -371,13 +382,11 @@ impl Event for UserFound {
             let url = user.get_avatar_url();
             if let Some(url) = url {
                 return Command::perform(ui::util::fetch_image(url), |result| match result {
-                    Ok(handle) => {
-                        AvatarRetrieved(handle).into()
-                    },
+                    Ok(handle) => AvatarRetrieved(handle).into(),
                     Err(err) => {
                         eprintln!("failed to get avatar {}", err);
                         AuthFailed.into()
-                    },
+                    }
                 });
             }
         }
@@ -393,7 +402,7 @@ impl Event for AvatarRetrieved {
         let AvatarRetrieved(handle) = self;
         println!("got avatar");
         app.nav.set_avatar(Some(handle));
-                
+
         let settings = settings::get_settings().read().unwrap();
         let token = settings.anilist.token();
         if let Some(user) = &app.user {
