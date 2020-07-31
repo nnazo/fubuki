@@ -49,7 +49,7 @@ impl App {
         )
     }
 
-    fn auth() -> Command<Message> {
+    pub fn auth() -> Command<Message> {
         Command::perform(anilist::auth(), |result| match result {
             Ok(token) => Authorized(token).into(),
             Err(err) => {
@@ -113,7 +113,7 @@ impl Application for App {
                 println!("already authorized");
                 Self::query_user(token.clone())
             }
-            None => Self::auth(),
+            None => /*Self::auth()*/Command::none(),
         };
         (app, command)
     }
@@ -158,7 +158,7 @@ impl Application for App {
 
 use ui::components::{
     nav::{CurrentMediaPress, SettingsPress}, 
-    page::{CoverChange, MediaChange, RefreshLists}
+    page::{CoverChange, MediaChange, RefreshLists, Logout, Login}
 };
 
 #[enum_dispatch]
@@ -183,6 +183,8 @@ pub enum Message {
     CoverChange,
     MediaChange,
     RefreshLists,
+    Logout,
+    Login,
 }
 
 pub fn forward_message(msg: Message) -> Command<Message> {
@@ -363,6 +365,8 @@ impl Event for UserFound {
         app.user = Some(user);
         println!("got user {:#?}", app.user);
 
+        app.page.settings.logged_in = true;
+
         if let Some(user) = &app.user {
             let url = user.get_avatar_url();
             if let Some(url) = url {
@@ -388,7 +392,7 @@ impl Event for AvatarRetrieved {
     fn handle(self, app: &mut App) -> Command<Message> {
         let AvatarRetrieved(handle) = self;
         println!("got avatar");
-        app.nav.set_avatar(handle);
+        app.nav.set_avatar(Some(handle));
                 
         let settings = settings::get_settings().read().unwrap();
         let token = settings.anilist.token();

@@ -6,6 +6,6 @@
     ],
     "manga": [
         "^\\[#(?P<chapter>\\d+)\\] (?P<title>.+) \\| MANGA Plus",
-        "^(?P<title>.+?) - (Vol[.] (?P<volume>\\d+) )?(Ch[.] (?P<chapter>(\\d+[.])?\\d+) )?(?P<oneshot>Oneshot)?.*?- MangaDex"
+        "^(?P<title>.+) - (Vol[.] (?P<volume>\\d+) )?((Ch[.] (?P<chapter>(\\d+[.])?\\d+))|(P<oneshot>(Oneshot|.*\\(Oneshot\\))))(.*?)- MangaDex"
     ]
 }

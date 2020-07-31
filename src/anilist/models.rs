@@ -140,23 +140,22 @@ impl Media {
     pub fn all_titles(&self) -> Vec<&String> {
         let mut titles = Vec::new();
         if let Some(title) = &self.title {
-            Self::add_title(&mut titles, &title.romaji);
-            Self::add_title(&mut titles, &title.user_preferred);
-            Self::add_title(&mut titles, &title.native);
-            Self::add_title(&mut titles, &title.english);
-        }
-        if let Some(synonyms) = &self.synonyms {
-            synonyms
+            let t: [Option<&String>; 4] = [title.romaji.as_ref(), title.user_preferred.as_ref(), title.native.as_ref(), title.english.as_ref()];
+            let t: Vec<&String> = t
                 .iter()
-                .for_each(|title| Self::add_title(&mut titles, title));
+                .filter_map(|item| *item)
+                .collect();
+            titles = itertools::chain(titles, t).collect();
+        }
+        
+        if let Some(synonyms) = &self.synonyms {
+            let syn: Vec<&String> = synonyms
+                .iter()
+                .filter_map(|title| title.as_ref())
+                .collect();
+            titles = itertools::chain(titles, syn).collect();
         }
         titles
-    }
-
-    fn add_title<'a>(v: &mut Vec<&'a String>, title: &'a Option<String>) {
-        if let Some(title) = title {
-            v.push(title);
-        }
     }
 
     pub fn preferred_title(&self) -> Option<String> {

@@ -38,12 +38,8 @@ impl<'a> RecognitionData {
                 let custom = serde_json::from_reader::<BufReader<File>, RecognitionData>(rdr);
                 match custom {
                     Ok(custom) => {
-                        for rgx in custom.anime {
-                            r.anime.push(rgx);
-                        }
-                        for rgx in custom.manga {
-                            r.manga.push(rgx);
-                        }
+                        r.anime = itertools::chain(r.anime, custom.anime).collect();
+                        r.manga = itertools::chain(r.manga, custom.manga).collect();
                     }
                     Err(err) => {
                         println!("error deserializing custom recognition data: {}", err);

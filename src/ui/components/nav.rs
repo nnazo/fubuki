@@ -122,7 +122,7 @@ impl Nav {
             .into()
     }
 
-    pub fn set_avatar(&mut self, avatar: image::Handle) {
-        self.avatar = Some(avatar);
+    pub fn set_avatar(&mut self, avatar: Option<image::Handle>) {
+        self.avatar = avatar;
     }
 }

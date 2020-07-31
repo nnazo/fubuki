@@ -5,6 +5,7 @@ use iced::{button, container, Background, Color};
 pub enum Button {
     Nav { selected: bool },
     Accent,
+    Danger,
 }
 
 impl button::StyleSheet for Button {
@@ -35,6 +36,14 @@ impl button::StyleSheet for Button {
                     ..button::Style::default()
                 }
             },
+            Button::Danger => {
+                button::Style {
+                    background: Some(Background::Color(Color::from_rgb8(189u8, 80u8, 102u8))),
+                    border_radius: 4,
+                    text_color: Color::from_rgb8(255u8, 255u8, 255u8),
+                    ..button::Style::default()
+                }
+            },
         }
     }
 
@@ -48,6 +57,7 @@ impl button::StyleSheet for Button {
                     active.text_color
                 },
                 Button::Accent => Color::from_rgb8(255u8, 255u8, 255u8),
+                Button::Danger => Color::from_rgb8(255u8, 255u8, 255u8),
             },
             ..active
         }
