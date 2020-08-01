@@ -1,4 +1,4 @@
-use super::models::{MediaList, MediaListCollection, MediaType, User};
+use super::models::{Media, MediaList, MediaListCollection, MediaType, User};
 use anyhow::{anyhow, Result};
 use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize};
@@ -34,6 +34,17 @@ pub struct MediaListCollectionResponse {
 #[serde(rename_all = "PascalCase")]
 pub struct SaveMediaListEntryResponse {
     pub save_media_list_entry: Option<MediaList>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct SearchResponse {
+    pub page: SearchPage,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct SearchPage {
+    pub media: Option<Vec<Option<Media>>>,
 }
 
 pub async fn query_graphql<R>(
@@ -153,6 +164,22 @@ pub async fn update_media(
     });
     if let serde_json::Value::Object(variables) = variables {
         query_from_file("./res/graphql/update_media.gql", &Some(variables), token).await
+    } else {
+        Err(anyhow!("update media variables was not a json object"))
+    }
+}
+
+pub async fn query_search(
+    token: Option<String>,
+    search: String,
+    media_type: MediaType,
+) -> Result<QueryResponse<SearchResponse>> {
+    let variables = json!({
+        "search": search,
+        "mediaType": media_type,
+    });
+    if let serde_json::Value::Object(variables) = variables {
+        query_from_file("./res/graphql/search.gql", &Some(variables), token).await
     } else {
         Err(anyhow!("update media variables was not a json object"))
     }

@@ -66,6 +66,119 @@ pub struct MediaListCollection {
 }
 
 impl MediaListCollection {
+    pub fn find_entry_by_id_mut(&mut self, id: i32) -> Option<&mut MediaList> {
+        let lists = self.lists.as_mut()?;
+        let lists: Vec<&mut MediaListGroup> = lists
+            .iter_mut()
+            .filter_map(|list_group| list_group.as_mut())
+            .collect();
+        for list in lists {
+            let entries: Vec<&mut MediaList> = match &mut list.entries {
+                Some(entries) => entries,
+                None => continue,
+            }
+            .iter_mut()
+            .filter_map(|entry| entry.as_mut())
+            .collect();
+
+            for entry in entries {
+                if entry.media_id == id {
+                    return Some(entry);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn collection_best_id_for_search(&mut self, search: &str, oneshot: bool) -> Option<i32> {
+        let lists = self.lists.as_mut()?;
+        let list_groups: Vec<&mut MediaListGroup> = lists
+            .into_iter()
+            .filter_map(|list_group| list_group.as_mut())
+            .collect();
+        let mut entries: Vec<Option<&MediaList>> = Vec::new();
+        for list_group in list_groups {
+            let e = match &mut list_group.entries {
+                Some(entries) => entries,
+                None => continue,
+            };
+            let mut e: Vec<Option<&MediaList>> = e
+                .iter()
+                .filter_map(|m| m.as_ref())
+                .map(|m| Some(m))
+                .collect();
+            entries.append(&mut e);
+        }
+
+        let media: Vec<Option<&Media>> = entries
+            .iter()
+            .filter_map(|entry| *entry)
+            .filter_map(|entry| entry.media.as_ref())
+            .filter(|media| match &media.format {
+                Some(fmt) => match fmt {
+                    MediaFormat::Oneshot => oneshot,
+                    _ => false,
+                },
+                None => false,
+            })
+            .map(|media| Some(media))
+            .collect();
+
+        Self::best_id_for_search(&media, search, oneshot)
+    }
+
+    pub fn best_id_for_search(
+        media: &[Option<&Media>],
+        search: &str,
+        oneshot: bool,
+    ) -> Option<i32> {
+        let mut media_in_list: Vec<&Media> = media
+            .into_iter()
+            .filter_map(|media| *media)
+            .filter_map(|media| match media.media_list_entry {
+                Some(_) => Some(media),
+                None => None,
+            })
+            .collect();
+
+        // Look for oneshots only
+        if oneshot {
+            media_in_list = media_in_list
+                .into_iter()
+                .filter_map(|media| match media.format {
+                    Some(MediaFormat::Oneshot) => Some(media),
+                    _ => None,
+                })
+                .collect();
+        }
+
+        let mut best_is_licensed = false;
+        let mut best_id = None;
+        let mut best_sim = 0.0;
+        for media in media_in_list {
+            for title in media.all_titles() {
+                let license = media.is_licensed.unwrap_or(false);
+                let sim = strsim::normalized_levenshtein(title, search);
+                // println!("    similarity of {} between {} and {}", sim, search, title);
+                if sim >= 0.85 {
+                    if sim > best_sim {
+                        best_id = Some(media.id);
+                        best_sim = sim;
+                        best_is_licensed = license;
+                    } else if sim == best_sim && !best_is_licensed {
+                        // Prioritize licensed media over non-licensed media since a licensed version exists
+                        best_id = Some(media.id);
+                        best_sim = sim;
+                        best_is_licensed = license;
+                    }
+                }
+            }
+        }
+
+        best_id
+    }
+
     pub fn search_for_title(&mut self, search: &str) -> Option<&mut MediaList> {
         let lists = self.lists.as_mut()?;
         let mut found_entries = Vec::new();
@@ -418,10 +531,13 @@ pub struct Media {
     pub synonyms: Option<Vec<Option<String>>>,
     pub cover_image: Option<MediaCoverImage>,
     pub description: Option<String>,
+    pub format: Option<MediaFormat>,
+    pub is_licensed: Option<bool>,
     // ...
     pub episodes: Option<i32>,
     pub chapters: Option<i32>,
     pub volumes: Option<i32>,
+    pub media_list_entry: Option<Box<MediaList>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -443,6 +559,22 @@ pub enum MediaType {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaCoverImage {
     large: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaFormat {
+    Tv,
+    TvShort,
+    Movie,
+    Special,
+    Ova,
+    Ona,
+    Music,
+    Manga,
+    Novel,
+    #[serde(rename = "ONE_SHOT")]
+    Oneshot,
 }
 
 #[cfg(test)]
