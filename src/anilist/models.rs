@@ -151,6 +151,16 @@ impl MediaListCollection {
                     _ => None,
                 })
                 .collect();
+        } else {
+            // filter out oneshots
+            media_in_list = media_in_list
+                .into_iter()
+                .filter_map(|media| match media.format {
+                    Some(MediaFormat::Oneshot) => None,
+                    Some(_) => Some(media),
+                    None => None,
+                })
+                .collect();
         }
 
         let mut best_is_licensed = false;
