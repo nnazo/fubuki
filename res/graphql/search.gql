@@ -1,0 +1,20 @@
+query($search: String, $mediaType: MediaType) {
+  Page(perPage: 15) {
+    media(search: $search, type: $mediaType) {
+      id
+      title {
+        romaji
+        english
+        native
+        userPreferred
+      }
+      synonyms
+      format
+      isLicensed
+      mediaListEntry {
+        id
+        mediaId
+      }
+    }
+  }
+}

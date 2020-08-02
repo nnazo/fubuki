@@ -62,6 +62,15 @@ query MediaList($id: Int, $type: MediaType) {
                         }
                     }
                     isLocked
+                    relations {
+                        edges {
+                            relationType
+                            node {
+                                id
+                                format
+                            }
+                        }
+                    }
                 }
             }
         }

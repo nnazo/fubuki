@@ -19,6 +19,7 @@ use ui::{components, style};
 #[derive(Default)]
 pub struct App {
     pub waiting_for_cover: bool,
+    pub recognized: Option<recognition::Media>,
     pub media: Option<(anilist::MediaList, recognition::Media)>,
     pub media_cover: Option<image::Handle>,
     pub nav: components::Nav,
@@ -88,6 +89,22 @@ impl App {
             },
         )
     }
+
+    pub fn query_search(token: String, recognized: recognition::Media, oneshot: bool) -> Command<Message> {
+        Command::perform(anilist::query_search(Some(token), recognized.title, recognized.media_type), move |result| match result {
+            Ok(resp) => match resp.data {
+                Some(search_resp) => match search_resp.page.media {
+                    Some(results) => SearchResults(results, oneshot).into(),
+                    None => AuthFailed.into(),
+                },
+                None => AuthFailed.into(),
+            },
+            Err(err) => {
+                eprintln!("search err: {}", err);
+                AuthFailed.into()
+            },
+        })
+    }
 }
 
 impl Application for App {
@@ -98,6 +115,7 @@ impl Application for App {
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let app = App {
             waiting_for_cover: false,
+            recognized: None,
             media: None,
             media_cover: None,
             nav: components::Nav::new(),
@@ -129,7 +147,7 @@ impl Application for App {
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
-        time::every(std::time::Duration::from_secs(2)).map(|_| SearchMedia.into())
+        time::every(std::time::Duration::from_secs(2)).map(|_| DetectMedia.into())
     }
 
     fn view(&mut self) -> Element<'_, Self::Message> {
@@ -166,8 +184,8 @@ use ui::components::{
 #[enum_dispatch]
 #[derive(Debug, Clone)]
 pub enum Message {
-    SearchMedia,
-    SearchResult,
+    DetectMedia,
+    DetectMediaResult,
     MediaFound,
     MediaNotFound,
     Authorized,
@@ -176,6 +194,8 @@ pub enum Message {
     AvatarRetrieved,
     ListRetrieved,
     CoverRetrieved,
+    SearchMedia,
+    SearchResults,
 
     // Nav
     CurrentMediaPress,
@@ -203,51 +223,63 @@ pub trait Event {
 }
 
 #[derive(Debug, Clone)]
-pub struct SearchMedia;
+pub struct DetectMedia;
 
-impl Event for SearchMedia {
+impl Event for DetectMedia {
     fn handle(self, _app: &mut App) -> Command<Message> {
         Command::perform(MediaParser::detect_media(), |media| {
-            SearchResult(media).into()
+            DetectMediaResult(media).into()
         })
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct SearchResult(Option<recognition::Media>);
+pub struct DetectMediaResult(Option<recognition::Media>);
 
-impl Event for SearchResult {
+impl Event for DetectMediaResult {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let SearchResult(media) = self;
+        let DetectMediaResult(media) = self;
         if let Some(detected_media) = media {
             println!("detected media {:#?}", detected_media);
-
-            let media = {
-                let list = match detected_media.media_type {
-                    anilist::MediaType::Anime => &mut app.anime_list,
-                    anilist::MediaType::Manga => &mut app.manga_list,
-                };
-
-                match list {
-                    Some(list) => list.search_for_title(&detected_media.title),
-                    None => None,
-                }
-            };
-
-            if let Some(media) = media {
-                // TODO: Check if the detected progress is larger than the media's maximum number of episodes/chapters
-                // This is most likely an nth season where the count rolled over
-                let needs_update =
-                    media.update_progress(detected_media.progress, detected_media.progress_volumes);
-                let media = media.clone();
-                return app.update(MediaFound(media, detected_media, needs_update).into());
-            } else {
-                return app.update(MediaNotFound.into());
+            match &app.recognized {
+                Some(media) => {
+                    if *media != detected_media {
+                        app.recognized = Some(detected_media.clone());
+                        return forward_message(SearchMedia(detected_media, false).into());
+                    } else {
+                        return forward_message(AuthFailed.into());
+                    }
+                },
+                None => {
+                    app.recognized = Some(detected_media.clone());
+                    return forward_message(SearchMedia(detected_media, false).into())
+                },
             }
-        } else {
-            return app.update(MediaNotFound.into());
+
+            // let media = {
+            //     let list = match detected_media.media_type {
+            //         anilist::MediaType::Anime => &mut app.anime_list,
+            //         anilist::MediaType::Manga => &mut app.manga_list,
+            //     };
+
+            //     match list {
+            //         Some(list) => list.search_for_title(&detected_media.title),
+            //         None => None,
+            //     }
+            // };
+
+            // if let Some(media) = media {
+            //     // TODO: Check if the detected progress is larger than the media's maximum number of episodes/chapters
+            //     // This is most likely an nth season where the count rolled over
+            //     let needs_update =
+            //         media.update_progress(detected_media.progress, detected_media.progress_volumes);
+            //     let media = media.clone();
+            //     return app.update(MediaFound(media, detected_media, needs_update).into());
+            // } else {
+            //     return app.update(MediaNotFound.into());
+            // }
         }
-        // Command::none()
+        forward_message(MediaNotFound.into())
     }
 }
 
@@ -278,6 +310,7 @@ impl Event for MediaFound {
         };
 
         app.media = Some((media.clone(), detected_media.clone()));
+        app.recognized = Some(detected_media.clone());
 
         let msg = MediaChange(Some((media.clone(), detected_media))).into();
         let mut commands = vec![forward_message(msg)];
@@ -334,12 +367,123 @@ pub struct MediaNotFound;
 
 impl Event for MediaNotFound {
     fn handle(self, app: &mut App) -> Command<Message> {
+        app.recognized = None;
         app.media = None;
         app.media_cover = None;
         Command::batch(vec![
             forward_message(MediaChange(None).into()),
             forward_message(CoverChange(None).into()),
         ])
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchMedia(recognition::Media, bool);
+
+impl Event for SearchMedia {
+    fn handle(self, app: &mut App) -> Command<Message> {
+        let SearchMedia(recognized, oneshot) = self;
+        let token = {
+            let settings = settings::get_settings().read().unwrap();
+            settings.anilist.token().clone()
+        };
+        match token {
+            Some(tok) => {
+                app.recognized = Some(recognized.clone());
+                App::query_search(tok, recognized, oneshot)
+            },
+            None => Command::none(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchResults(Vec<Option<anilist::Media>>, bool);
+
+impl Event for SearchResults {
+    fn handle(self, app: &mut App) -> Command<Message> {
+        let SearchResults(results, oneshot) = self;
+        let results: Vec<Option<&anilist::Media>> = results.iter().filter_map(|m| m.as_ref()).map(|m| Some(m)).collect();
+        if let Some(mut recognized) = app.recognized.clone() {
+            let id = anilist::MediaListCollection::best_id_for_search(&results, &recognized.title, oneshot);
+            if let Some(mut id) = id {
+                let progress = {
+                    let list = match recognized.media_type {
+                        anilist::MediaType::Anime => &app.anime_list,
+                        anilist::MediaType::Manga => &app.manga_list,
+                    };
+                    let progress = match recognized.media_type {
+                        anilist::MediaType::Anime => {
+                            match list {
+                                Some(list) => match recognized.progress {
+                                    Some(new_progress) => {
+                                        let mut offset_progress = list.compute_progress_offset_by_id(id, new_progress as i32);
+                                        
+                                        if let Some(offset) = offset_progress {
+                                            if offset < 0 {
+                                                // try to find offset for immediate sequel
+                                                let sequel_offset = list.compute_progress_offset_for_sequel(id, new_progress as i32);
+                                                match sequel_offset {
+                                                    Some((offset, sequel_id)) => {
+                                                        offset_progress = Some(offset);
+                                                        id = sequel_id
+                                                    },
+                                                    None => {},
+                                                }
+                                            }
+                                        }
+
+                                        offset_progress
+                                    },
+                                    None => None,
+                                },
+                                None => None,
+                            }
+                        },
+                        _ => None,
+                    };
+
+                    progress
+                };
+
+                let list = match recognized.media_type {
+                    anilist::MediaType::Anime => &mut app.anime_list,
+                    anilist::MediaType::Manga => &mut app.manga_list,
+                };
+                if let Some(list) = list {
+                    let entry = list.find_entry_by_id_mut(id);
+                    if let Some(media) = entry {
+                        // Check if the detected progress is larger than the media's maximum number of episodes/chapters
+                        // This is most likely an nth season where the count rolled over
+                        if let Some(progress) = progress {
+                            if let Some(recognized_progress) = recognized.progress {
+                                if progress > 0 && progress < recognized_progress as i32 {
+                                    println!("offset progress to {} instead of {}", progress, recognized_progress);
+                                    recognized.progress = Some(progress as f64);
+                                } else {
+                                    recognized.progress = None;
+                                    println!("something went wrong with detected progress, {} became {}", recognized_progress, progress);
+                                }
+                            } else {
+                                println!("no recognized progress");
+                            }
+                        } else {
+                            println!("progress offset was None");
+                        }
+
+                        let needs_update =
+                            media.update_progress(recognized.progress, recognized.progress_volumes);
+                        let media = media.clone();
+                        return app.update(MediaFound(media, recognized, needs_update).into());
+                    } else {
+                        println!("could not find media in list");
+                        return app.update(MediaNotFound.into());
+                    }
+                }
+            }
+        }
+
+        Command::none()
     }
 }
 

@@ -66,6 +66,247 @@ pub struct MediaListCollection {
 }
 
 impl MediaListCollection {
+
+    pub fn compute_progress_offset_for_sequel(&self, id: i32, new_progress: i32) -> Option<(i32, i32)> {
+        let media = self.find_entry_by_id(id);
+        match media {
+            Some(entry) => {
+                match &entry.media {
+                    Some(media) => {
+                        let sequel = media.find_anime_sequel();
+                        if let Some(sequel) = sequel {
+                            let offset_progress = self.compute_progress_offset_by_id(sequel.id, new_progress as i32);
+                            if let Some(offset_progress) = offset_progress {
+                                Some((offset_progress, sequel.id))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    },
+                    None => None,
+                }
+            },
+            None => None,
+        }
+    }
+
+    pub fn compute_progress_offset_by_id(&self, id: i32, new_progress: i32) -> Option<i32> {
+        let entry = self.find_entry_by_id(id);
+        match entry {
+            Some(entry) => self.compute_progress_offset(entry, new_progress),
+            None => None,
+        }
+    }
+
+    pub fn compute_progress_offset(&self, entry: &MediaList, new_progress: i32) -> Option<i32> {
+        let media = entry.media.as_ref()?;
+        let length = media.episodes.unwrap_or_default();
+        if new_progress > length {
+            match self.compute_total_episodes(media, new_progress) {
+                Some(total) => Some(new_progress - total + length),
+                None => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn compute_total_episodes(&self, media: &Media, new_progress: i32) -> Option<i32> {
+        let relations = media.relations.as_ref()?;
+        let edges: Vec<&MediaEdge> = relations.edges.as_ref()?.iter()
+            .filter_map(|edge| edge.as_ref())
+            .filter(|edge| match edge.relation_type {
+                Some(MediaRelation::Prequel) => true,
+                _ => false,
+            })
+            .filter(|edge| match &edge.node {
+                Some(node) => match &node.format {
+                    Some(MediaFormat::Tv) => true,
+                    _ => false,
+                },
+                _ => false,
+            })
+            .collect();
+
+        let length = media.episodes?;
+
+        if length < new_progress {
+            if edges.len() == 1 {
+                let edge = edges[0];
+                let prequel = self.find_entry_by_id(edge.node.as_ref()?.id);
+                let prequel_media = prequel.as_ref()?.media.as_ref()?;
+                match prequel_media.episodes {
+                    Some(episodes) => {
+                        if episodes + length < new_progress {
+                            let sub_offset = self.compute_total_episodes(prequel_media, new_progress);
+                            match sub_offset {
+                                Some(sub_offset) => Some(length + sub_offset),
+                                None => Some(length),
+                            }
+                        } else {
+                            Some(episodes + length)
+                        }
+                    },
+                    None => None,
+                }
+            } else {
+                Some(length)
+            }
+        } else {
+            Some(length)
+        }
+    }
+
+    pub fn find_entry_by_id(&self, id: i32) -> Option<&MediaList> {
+        let lists = self.lists.as_ref()?;
+        let lists: Vec<&MediaListGroup> = lists
+            .iter()
+            .filter_map(|list_group| list_group.as_ref())
+            .collect();
+        for list in lists {
+            let entries: Vec<&MediaList> = match &list.entries {
+                Some(entries) => entries,
+                None => continue,
+            }
+            .iter()
+            .filter_map(|entry| entry.as_ref())
+            .collect();
+
+            for entry in entries {
+                if entry.media_id == id {
+                    return Some(entry);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn find_entry_by_id_mut(&mut self, id: i32) -> Option<&mut MediaList> {
+        let lists = self.lists.as_mut()?;
+        let lists: Vec<&mut MediaListGroup> = lists
+            .iter_mut()
+            .filter_map(|list_group| list_group.as_mut())
+            .collect();
+        for list in lists {
+            let entries: Vec<&mut MediaList> = match &mut list.entries {
+                Some(entries) => entries,
+                None => continue,
+            }
+            .iter_mut()
+            .filter_map(|entry| entry.as_mut())
+            .collect();
+
+            for entry in entries {
+                if entry.media_id == id {
+                    return Some(entry);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn collection_best_id_for_search(&mut self, search: &str, oneshot: bool) -> Option<i32> {
+        let lists = self.lists.as_mut()?;
+        let list_groups: Vec<&mut MediaListGroup> = lists
+            .into_iter()
+            .filter_map(|list_group| list_group.as_mut())
+            .collect();
+        let mut entries: Vec<Option<&MediaList>> = Vec::new();
+        for list_group in list_groups {
+            let e = match &mut list_group.entries {
+                Some(entries) => entries,
+                None => continue,
+            };
+            let mut e: Vec<Option<&MediaList>> = e
+                .iter()
+                .filter_map(|m| m.as_ref())
+                .map(|m| Some(m))
+                .collect();
+            entries.append(&mut e);
+        }
+
+        let media: Vec<Option<&Media>> = entries
+            .iter()
+            .filter_map(|entry| *entry)
+            .filter_map(|entry| entry.media.as_ref())
+            .filter(|media| match &media.format {
+                Some(fmt) => match fmt {
+                    MediaFormat::Oneshot => oneshot,
+                    _ => false,
+                },
+                None => false,
+            })
+            .map(|media| Some(media))
+            .collect();
+
+        Self::best_id_for_search(&media, search, oneshot)
+    }
+
+    pub fn best_id_for_search(
+        media: &[Option<&Media>],
+        search: &str,
+        oneshot: bool,
+    ) -> Option<i32> {
+        let mut media_in_list: Vec<&Media> = media
+            .into_iter()
+            .filter_map(|media| *media)
+            .filter_map(|media| match media.media_list_entry {
+                Some(_) => Some(media),
+                None => None,
+            })
+            .collect();
+
+        // Look for oneshots only
+        if oneshot {
+            media_in_list = media_in_list
+                .into_iter()
+                .filter_map(|media| match media.format {
+                    Some(MediaFormat::Oneshot) => Some(media),
+                    _ => None,
+                })
+                .collect();
+        } else {
+            // filter out oneshots
+            media_in_list = media_in_list
+                .into_iter()
+                .filter_map(|media| match media.format {
+                    Some(MediaFormat::Oneshot) => None,
+                    Some(_) => Some(media),
+                    None => None,
+                })
+                .collect();
+        }
+
+        let mut best_is_licensed = false;
+        let mut best_id = None;
+        let mut best_sim = 0.0;
+        for media in media_in_list {
+            for title in media.all_titles() {
+                let license = media.is_licensed.unwrap_or(false);
+                let sim = strsim::normalized_levenshtein(title, search);
+                // println!("    similarity of {} between {} and {}", sim, search, title);
+                if sim >= 0.85 {
+                    if sim > best_sim {
+                        best_id = Some(media.id);
+                        best_sim = sim;
+                        best_is_licensed = license;
+                    } else if sim == best_sim && !best_is_licensed {
+                        // Prioritize licensed media over non-licensed media since a licensed version exists
+                        best_id = Some(media.id);
+                        best_sim = sim;
+                        best_is_licensed = license;
+                    }
+                }
+            }
+        }
+
+        best_id
+    }
+
     pub fn search_for_title(&mut self, search: &str) -> Option<&mut MediaList> {
         let lists = self.lists.as_mut()?;
         let mut found_entries = Vec::new();
@@ -184,6 +425,32 @@ impl Media {
                 _ => {}
             }
             self.description.clone()
+        } else {
+            None
+        }
+    }
+
+    pub fn find_anime_sequel(&self) -> Option<&Media> {
+        let relations = self.relations.as_ref()?;
+        let edges: Vec<&MediaEdge> = relations.edges.as_ref()?.iter()
+            .filter_map(|edge| edge.as_ref())
+            .filter(|edge| match edge.relation_type {
+                Some(MediaRelation::Sequel) => true,
+                _ => false,
+            })
+            .filter(|edge| match edge.node.as_ref() {
+                Some(node) => {
+                    match node.format {
+                        Some(MediaFormat::Tv) => true,
+                        _ => false,
+                    }
+                },
+                None => false,
+            })
+            .collect();
+
+        if edges.len() == 1 {
+            edges[0].node.as_ref()
         } else {
             None
         }
@@ -418,10 +685,14 @@ pub struct Media {
     pub synonyms: Option<Vec<Option<String>>>,
     pub cover_image: Option<MediaCoverImage>,
     pub description: Option<String>,
+    pub format: Option<MediaFormat>,
+    pub is_licensed: Option<bool>,
+    pub relations: Option<MediaConnection>,
     // ...
     pub episodes: Option<i32>,
     pub chapters: Option<i32>,
     pub volumes: Option<i32>,
+    pub media_list_entry: Option<Box<MediaList>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -443,6 +714,52 @@ pub enum MediaType {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaCoverImage {
     large: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MediaConnection {
+    pub edges: Option<Vec<Option<MediaEdge>>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaEdge {
+    pub node: Option<Media>,
+    pub relation_type: Option<MediaRelation>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaRelation {
+    Adaptation,
+    Prequel,
+    Sequel,
+    Parent,
+    SideStory,
+    Character,
+    Summary,
+    Alternative,
+    SpinOff,
+    Other,
+    Source,
+    Compilation,
+    Contains,
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaFormat {
+    Tv,
+    TvShort,
+    Movie,
+    Special,
+    Ova,
+    Ona,
+    Music,
+    Manga,
+    Novel,
+    #[serde(rename = "ONE_SHOT")]
+    Oneshot,
 }
 
 #[cfg(test)]
