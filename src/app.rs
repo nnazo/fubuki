@@ -406,16 +406,44 @@ impl Event for SearchResults {
         let results: Vec<Option<&anilist::Media>> = results.iter().filter_map(|m| m.as_ref()).map(|m| Some(m)).collect();
         if let Some(mut recognized) = app.recognized.clone() {
             let id = anilist::MediaListCollection::best_id_for_search(&results, &recognized.title, oneshot);
-            if let Some(id) = id {
+            if let Some(mut id) = id {
                 let progress = {
                     let list = match recognized.media_type {
                         anilist::MediaType::Anime => &app.anime_list,
                         anilist::MediaType::Manga => &app.manga_list,
                     };
-                    match list {
-                        Some(list) => list.compute_progress_offset_by_id(id),
-                        None => None,
-                    }
+                    let progress = match recognized.media_type {
+                        anilist::MediaType::Anime => {
+                            match list {
+                                Some(list) => match recognized.progress {
+                                    Some(new_progress) => {
+                                        let mut offset_progress = list.compute_progress_offset_by_id(id, new_progress as i32);
+                                        
+                                        if let Some(offset) = offset_progress {
+                                            if offset < 0 {
+                                                // try to find offset for immediate sequel
+                                                let sequel_offset = list.compute_progress_offset_for_sequel(id, new_progress as i32);
+                                                match sequel_offset {
+                                                    Some((offset, sequel_id)) => {
+                                                        offset_progress = Some(offset);
+                                                        id = sequel_id
+                                                    },
+                                                    None => {},
+                                                }
+                                            }
+                                        }
+
+                                        offset_progress
+                                    },
+                                    None => None,
+                                },
+                                None => None,
+                            }
+                        },
+                        _ => None,
+                    };
+
+                    progress
                 };
 
                 let list = match recognized.media_type {
@@ -434,7 +462,7 @@ impl Event for SearchResults {
                                     recognized.progress = Some(progress as f64);
                                 } else {
                                     recognized.progress = None;
-                                    println!("something went wrong detected progress, {} became {}", recognized_progress, progress);
+                                    println!("something went wrong with detected progress, {} became {}", recognized_progress, progress);
                                 }
                             } else {
                                 println!("no recognized progress");
@@ -448,7 +476,7 @@ impl Event for SearchResults {
                         let media = media.clone();
                         return app.update(MediaFound(media, recognized, needs_update).into());
                     } else {
-                        println!("oh noes");
+                        println!("could not find media in list");
                         return app.update(MediaNotFound.into());
                     }
                 }

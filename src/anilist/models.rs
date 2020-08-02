@@ -66,25 +66,54 @@ pub struct MediaListCollection {
 }
 
 impl MediaListCollection {
-    pub fn compute_progress_offset_by_id(&self, id: i32) -> Option<i32> {
+
+    pub fn compute_progress_offset_for_sequel(&self, id: i32, new_progress: i32) -> Option<(i32, i32)> {
+        let media = self.find_entry_by_id(id);
+        match media {
+            Some(entry) => {
+                match &entry.media {
+                    Some(media) => {
+                        let sequel = media.find_anime_sequel();
+                        if let Some(sequel) = sequel {
+                            let offset_progress = self.compute_progress_offset_by_id(sequel.id, new_progress as i32);
+                            if let Some(offset_progress) = offset_progress {
+                                Some((offset_progress, sequel.id))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    },
+                    None => None,
+                }
+            },
+            None => None,
+        }
+    }
+
+    pub fn compute_progress_offset_by_id(&self, id: i32, new_progress: i32) -> Option<i32> {
         let entry = self.find_entry_by_id(id);
         match entry {
-            Some(entry) => self.compute_progress_offset(entry),
+            Some(entry) => self.compute_progress_offset(entry, new_progress),
             None => None,
         }
     }
 
-    pub fn compute_progress_offset(&self, entry: &MediaList) -> Option<i32> {
-        let progress = entry.progress?;
+    pub fn compute_progress_offset(&self, entry: &MediaList, new_progress: i32) -> Option<i32> {
         let media = entry.media.as_ref()?;
         let length = media.episodes.unwrap_or_default();
-        match self.compute_total_episodes(media) {
-            Some(total) => Some(progress - total + length),
-            None => None,
+        if new_progress > length {
+            match self.compute_total_episodes(media, new_progress) {
+                Some(total) => Some(new_progress - total + length),
+                None => None,
+            }
+        } else {
+            None
         }
     }
 
-    pub fn compute_total_episodes(&self, media: &Media) -> Option<i32> {
+    pub fn compute_total_episodes(&self, media: &Media, new_progress: i32) -> Option<i32> {
         let relations = media.relations.as_ref()?;
         let edges: Vec<&MediaEdge> = relations.edges.as_ref()?.iter()
             .filter_map(|edge| edge.as_ref())
@@ -103,13 +132,27 @@ impl MediaListCollection {
 
         let length = media.episodes?;
 
-        if edges.len() == 1 {
-            let edge = edges[0];
-            let prequel = self.find_entry_by_id(edge.node.as_ref()?.id);
-            let sub_offset = self.compute_total_episodes(prequel.as_ref()?.media.as_ref()?);
-            match sub_offset {
-                Some(sub_offset) => Some(length + sub_offset),
-                None => Some(length),
+        if length < new_progress {
+            if edges.len() == 1 {
+                let edge = edges[0];
+                let prequel = self.find_entry_by_id(edge.node.as_ref()?.id);
+                let prequel_media = prequel.as_ref()?.media.as_ref()?;
+                match prequel_media.episodes {
+                    Some(episodes) => {
+                        if episodes + length < new_progress {
+                            let sub_offset = self.compute_total_episodes(prequel_media, new_progress);
+                            match sub_offset {
+                                Some(sub_offset) => Some(length + sub_offset),
+                                None => Some(length),
+                            }
+                        } else {
+                            Some(episodes + length)
+                        }
+                    },
+                    None => None,
+                }
+            } else {
+                Some(length)
             }
         } else {
             Some(length)
@@ -382,6 +425,32 @@ impl Media {
                 _ => {}
             }
             self.description.clone()
+        } else {
+            None
+        }
+    }
+
+    pub fn find_anime_sequel(&self) -> Option<&Media> {
+        let relations = self.relations.as_ref()?;
+        let edges: Vec<&MediaEdge> = relations.edges.as_ref()?.iter()
+            .filter_map(|edge| edge.as_ref())
+            .filter(|edge| match edge.relation_type {
+                Some(MediaRelation::Sequel) => true,
+                _ => false,
+            })
+            .filter(|edge| match edge.node.as_ref() {
+                Some(node) => {
+                    match node.format {
+                        Some(MediaFormat::Tv) => true,
+                        _ => false,
+                    }
+                },
+                None => false,
+            })
+            .collect();
+
+        if edges.len() == 1 {
+            edges[0].node.as_ref()
         } else {
             None
         }

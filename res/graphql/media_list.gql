@@ -67,6 +67,7 @@ query MediaList($id: Int, $type: MediaType) {
                             relationType
                             node {
                                 id
+                                format
                             }
                         }
                     }
