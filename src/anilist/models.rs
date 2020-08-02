@@ -66,6 +66,81 @@ pub struct MediaListCollection {
 }
 
 impl MediaListCollection {
+    pub fn compute_progress_offset_by_id(&self, id: i32) -> Option<i32> {
+        let entry = self.find_entry_by_id(id);
+        match entry {
+            Some(entry) => self.compute_progress_offset(entry),
+            None => None,
+        }
+    }
+
+    pub fn compute_progress_offset(&self, entry: &MediaList) -> Option<i32> {
+        let progress = entry.progress?;
+        let media = entry.media.as_ref()?;
+        let length = media.episodes.unwrap_or_default();
+        match self.compute_total_episodes(media) {
+            Some(total) => Some(progress - total + length),
+            None => None,
+        }
+    }
+
+    pub fn compute_total_episodes(&self, media: &Media) -> Option<i32> {
+        let relations = media.relations.as_ref()?;
+        let edges: Vec<&MediaEdge> = relations.edges.as_ref()?.iter()
+            .filter_map(|edge| edge.as_ref())
+            .filter(|edge| match edge.relation_type {
+                Some(MediaRelation::Prequel) => true,
+                _ => false,
+            })
+            .filter(|edge| match &edge.node {
+                Some(node) => match &node.format {
+                    Some(MediaFormat::Tv) => true,
+                    _ => false,
+                },
+                _ => false,
+            })
+            .collect();
+
+        let length = media.episodes?;
+
+        if edges.len() == 1 {
+            let edge = edges[0];
+            let prequel = self.find_entry_by_id(edge.node.as_ref()?.id);
+            let sub_offset = self.compute_total_episodes(prequel.as_ref()?.media.as_ref()?);
+            match sub_offset {
+                Some(sub_offset) => Some(length + sub_offset),
+                None => Some(length),
+            }
+        } else {
+            Some(length)
+        }
+    }
+
+    pub fn find_entry_by_id(&self, id: i32) -> Option<&MediaList> {
+        let lists = self.lists.as_ref()?;
+        let lists: Vec<&MediaListGroup> = lists
+            .iter()
+            .filter_map(|list_group| list_group.as_ref())
+            .collect();
+        for list in lists {
+            let entries: Vec<&MediaList> = match &list.entries {
+                Some(entries) => entries,
+                None => continue,
+            }
+            .iter()
+            .filter_map(|entry| entry.as_ref())
+            .collect();
+
+            for entry in entries {
+                if entry.media_id == id {
+                    return Some(entry);
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn find_entry_by_id_mut(&mut self, id: i32) -> Option<&mut MediaList> {
         let lists = self.lists.as_mut()?;
         let lists: Vec<&mut MediaListGroup> = lists
@@ -543,6 +618,7 @@ pub struct Media {
     pub description: Option<String>,
     pub format: Option<MediaFormat>,
     pub is_licensed: Option<bool>,
+    pub relations: Option<MediaConnection>,
     // ...
     pub episodes: Option<i32>,
     pub chapters: Option<i32>,
@@ -569,6 +645,36 @@ pub enum MediaType {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaCoverImage {
     large: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MediaConnection {
+    pub edges: Option<Vec<Option<MediaEdge>>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaEdge {
+    pub node: Option<Media>,
+    pub relation_type: Option<MediaRelation>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MediaRelation {
+    Adaptation,
+    Prequel,
+    Sequel,
+    Parent,
+    SideStory,
+    Character,
+    Summary,
+    Alternative,
+    SpinOff,
+    Other,
+    Source,
+    Compilation,
+    Contains,
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]

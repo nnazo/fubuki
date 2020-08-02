@@ -404,9 +404,20 @@ impl Event for SearchResults {
     fn handle(self, app: &mut App) -> Command<Message> {
         let SearchResults(results, oneshot) = self;
         let results: Vec<Option<&anilist::Media>> = results.iter().filter_map(|m| m.as_ref()).map(|m| Some(m)).collect();
-        if let Some(recognized) = app.recognized.clone() {
+        if let Some(mut recognized) = app.recognized.clone() {
             let id = anilist::MediaListCollection::best_id_for_search(&results, &recognized.title, oneshot);
             if let Some(id) = id {
+                let progress = {
+                    let list = match recognized.media_type {
+                        anilist::MediaType::Anime => &app.anime_list,
+                        anilist::MediaType::Manga => &app.manga_list,
+                    };
+                    match list {
+                        Some(list) => list.compute_progress_offset_by_id(id),
+                        None => None,
+                    }
+                };
+
                 let list = match recognized.media_type {
                     anilist::MediaType::Anime => &mut app.anime_list,
                     anilist::MediaType::Manga => &mut app.manga_list,
@@ -414,8 +425,24 @@ impl Event for SearchResults {
                 if let Some(list) = list {
                     let entry = list.find_entry_by_id_mut(id);
                     if let Some(media) = entry {
-                        // TODO: Check if the detected progress is larger than the media's maximum number of episodes/chapters
+                        // Check if the detected progress is larger than the media's maximum number of episodes/chapters
                         // This is most likely an nth season where the count rolled over
+                        if let Some(progress) = progress {
+                            if let Some(recognized_progress) = recognized.progress {
+                                if progress > 0 && progress < recognized_progress as i32 {
+                                    println!("offset progress to {} instead of {}", progress, recognized_progress);
+                                    recognized.progress = Some(progress as f64);
+                                } else {
+                                    recognized.progress = None;
+                                    println!("something went wrong detected progress, {} became {}", recognized_progress, progress);
+                                }
+                            } else {
+                                println!("no recognized progress");
+                            }
+                        } else {
+                            println!("progress offset was None");
+                        }
+
                         let needs_update =
                             media.update_progress(recognized.progress, recognized.progress_volumes);
                         let media = media.clone();
