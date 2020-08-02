@@ -20,7 +20,7 @@ use ui::{components, style};
 pub struct App {
     pub waiting_for_cover: bool,
     pub recognized: Option<recognition::Media>,
-    pub media: Option<(anilist::MediaList, recognition::Media)>,
+    pub media: Option<anilist::MediaList>,
     pub media_cover: Option<image::Handle>,
     pub nav: components::Nav,
     pub page: components::PageContainer,
@@ -293,7 +293,7 @@ impl Event for MediaFound {
             Some(media) => {
                 let url = media.cover_image_url();
                 match &app.media {
-                    Some((old_media, _)) => match &old_media.media {
+                    Some(old_media) => match &old_media.media {
                         Some(old_media) => {
                             if url == old_media.cover_image_url() {
                                 (url, false)
@@ -309,10 +309,10 @@ impl Event for MediaFound {
             None => (None, false),
         };
 
-        app.media = Some((media.clone(), detected_media.clone()));
+        app.media = Some(media.clone());
         app.recognized = Some(detected_media.clone());
 
-        let msg = MediaChange(Some((media.clone(), detected_media))).into();
+        let msg = MediaChange(Some(media.clone()), Some(detected_media)).into();
         let mut commands = vec![forward_message(msg)];
 
         if let Some(cover_url) = cover_url {
@@ -371,7 +371,7 @@ impl Event for MediaNotFound {
         app.media = None;
         app.media_cover = None;
         Command::batch(vec![
-            forward_message(MediaChange(None).into()),
+            forward_message(MediaChange(None, None).into()),
             forward_message(CoverChange(None).into()),
         ])
     }

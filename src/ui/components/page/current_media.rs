@@ -8,7 +8,8 @@ use iced::{image, Column, Command, Element, Row, Text};
 
 #[derive(Debug, Clone)]
 pub struct CurrentMediaPage {
-    current: Option<(anilist::MediaList, recognition::Media)>,
+    current: Option<anilist::MediaList>,
+    recognized: Option<recognition::Media>,
     cover: Option<image::Handle>,
     default_cover: image::Handle,
 }
@@ -31,7 +32,7 @@ impl CurrentMediaPage {
         let title_size = 18;
         let text_size = 14;
         match &mut self.current {
-            Some((current, current_detected)) => {
+            Some(current) => {
                 let title = match &current.media {
                     Some(media) => match media.preferred_title() {
                         Some(title) => Some(title.clone()),
@@ -44,15 +45,17 @@ impl CurrentMediaPage {
                     None => col = col.push(Text::new("Could Not Get Title").size(title_size)),
                 }
                 // current.current_media_string();
-                col = col.push(Text::new(current_detected.current_media_string()).size(text_size));
-                if let Some(media) = &mut current.media {
-                    if let Some(desc) = media.description() {
-                        col = col.push(
-                            Column::new()
-                                .spacing(inner_col_space)
-                                .push(Text::new("Description:").size(text_size))
-                                .push(Text::new(desc.clone()).size(text_size)),
-                        );
+                if let Some(current_detected) = &self.recognized {
+                    col = col.push(Text::new(current_detected.current_media_string()).size(text_size));
+                    if let Some(media) = &mut current.media {
+                        if let Some(desc) = media.description() {
+                            col = col.push(
+                                Column::new()
+                                    .spacing(inner_col_space)
+                                    .push(Text::new("Description:").size(text_size))
+                                    .push(Text::new(desc.clone()).size(text_size)),
+                            );
+                        }
                     }
                 }
             }
@@ -65,9 +68,11 @@ impl CurrentMediaPage {
 
     pub fn set_current_media(
         &mut self,
-        media_list: Option<(anilist::MediaList, recognition::Media)>,
+        media_list: Option<anilist::MediaList>,
+        recognized: Option<recognition::Media>,
     ) {
         self.current = media_list;
+        self.recognized = recognized;
     }
 
     pub fn set_media_cover(&mut self, new_cover: Option<image::Handle>) {
@@ -80,6 +85,7 @@ impl Default for CurrentMediaPage {
     fn default() -> Self {
         CurrentMediaPage {
             current: None,
+            recognized: None,
             cover: None,
             default_cover: image::Handle::from("./res/cover_default.jpg"),
         }
@@ -98,20 +104,15 @@ impl Event for CoverChange {
 }
 
 #[derive(Debug, Clone)]
-pub struct MediaChange(pub Option<(anilist::MediaList, recognition::Media)>);
+pub struct MediaChange(pub Option<anilist::MediaList>, pub Option<recognition::Media>);
 
 impl Event for MediaChange {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let MediaChange(media_list) = self;
-        match media_list {
-            Some(media) => {
-                app.page.current_media.set_current_media(Some(media));
-            }
-            None => {
-                app.page.current_media.set_current_media(None);
-                app.page.current_media.set_media_cover(None);
-            }
+        let MediaChange(media_list, recognized) = self;
+        if media_list.is_none() {
+            app.page.current_media.set_media_cover(None);
         }
+        app.page.current_media.set_current_media(media_list, recognized);
         Command::none()
     }
 }
