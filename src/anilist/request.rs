@@ -27,7 +27,7 @@ pub struct ViewerResponse {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct MediaListCollectionResponse {
-    pub media_list_collection: Option<MediaListCollection>,
+    pub media_list_collection: Option<Box<MediaListCollection>>,
 }
 
 #[derive(Deserialize, Debug)]

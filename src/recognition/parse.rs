@@ -140,7 +140,7 @@ impl Media {
             },
             MediaType::Manga => {
                 let mut s = match self.progress_volumes {
-                    Some(p) => format!("Reading Vol. {}", p as i32 + 1),
+                    Some(p) => format!("Reading Vol. {}", p as i32),
                     None => String::from("Reading"),
                 };
                 if let Some(p) = self.progress {
