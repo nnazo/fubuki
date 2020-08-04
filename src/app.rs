@@ -25,8 +25,8 @@ pub struct App {
     pub nav: components::Nav,
     pub page: components::PageContainer,
     pub user: Option<anilist::User>,
-    pub anime_list: Option<Box<anilist::MediaListCollection>>,
-    pub manga_list: Option<Box<anilist::MediaListCollection>>,
+    pub anime_list: Option<anilist::MediaListCollection>,
+    pub manga_list: Option<anilist::MediaListCollection>,
 }
 
 impl App {
@@ -560,8 +560,8 @@ impl Event for AvatarRetrieved {
 
 #[derive(Debug, Clone)]
 pub struct ListRetrieved {
-    anime_list: Option<Box<anilist::MediaListCollection>>,
-    manga_list: Option<Box<anilist::MediaListCollection>>,
+    anime_list: Option<anilist::MediaListCollection>,
+    manga_list: Option<anilist::MediaListCollection>,
 }
 
 impl Event for ListRetrieved {
