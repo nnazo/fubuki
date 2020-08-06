@@ -27,6 +27,7 @@ pub struct App {
     pub user: Option<anilist::User>,
     pub anime_list: Option<anilist::MediaListCollection>,
     pub manga_list: Option<anilist::MediaListCollection>,
+    pub updates: anilist::ListUpdateQueue,
 }
 
 impl App {
@@ -123,6 +124,7 @@ impl Application for App {
             user: None,
             anime_list: None,
             manga_list: None,
+            updates: anilist::ListUpdateQueue::default(),
         };
         let command = match settings::get_settings().write().unwrap().anilist.token() {
             Some(token) => {
@@ -178,7 +180,7 @@ impl Application for App {
 
 use ui::components::{
     nav::{CurrentMediaPress, SettingsPress},
-    page::{CoverChange, Login, Logout, MediaChange, RefreshLists},
+    page::{CoverChange, Login, Logout, MediaChange, RefreshLists, CancelListUpdate},
 };
 
 #[enum_dispatch]
@@ -207,6 +209,7 @@ pub enum Message {
     RefreshLists,
     Logout,
     Login,
+    CancelListUpdate,
 }
 
 pub fn forward_message(msg: Message) -> Command<Message> {
@@ -312,7 +315,7 @@ impl Event for MediaFound {
         app.media = Some(media.clone());
         app.recognized = Some(detected_media.clone());
 
-        let msg = MediaChange(Some(media.clone()), Some(detected_media)).into();
+        let msg = MediaChange(Some(media.clone()), Some(detected_media), needs_update).into();
         let mut commands = vec![forward_message(msg)];
 
         if let Some(cover_url) = cover_url {
@@ -371,7 +374,7 @@ impl Event for MediaNotFound {
         app.media = None;
         app.media_cover = None;
         Command::batch(vec![
-            forward_message(MediaChange(None, None).into()),
+            forward_message(MediaChange(None, None, false).into()),
             forward_message(CoverChange(None).into()),
         ])
     }

@@ -3,11 +3,14 @@ use crate::{
     anilist,
     app::{App, Event, Message},
     recognition,
+    ui::style,
 };
-use iced::{image, Column, Command, Element, Row, Text};
+use iced::{image, Column, Command, Element, Row, Text, Button, button, HorizontalAlignment, Length};
 
 #[derive(Debug, Clone)]
 pub struct CurrentMediaPage {
+    update_cancel_btn_state: button::State,
+    show_cancel_update: bool,
     current: Option<anilist::MediaList>,
     recognized: Option<recognition::Media>,
     cover: Option<image::Handle>,
@@ -21,6 +24,7 @@ impl CurrentMediaPage {
         let padding_size = 24;
         let spacing_size = 12;
         let inner_col_space = 6;
+        let button_padding = 12;
         let mut row = Row::<Message>::new()
             .padding(padding_size)
             .spacing(padding_size);
@@ -33,6 +37,7 @@ impl CurrentMediaPage {
         let text_size = 14;
         match &mut self.current {
             Some(current) => {
+                let mut inner_row = Row::<Message>::new();
                 let title = match &current.media {
                     Some(media) => match media.preferred_title() {
                         Some(title) => Some(title.clone()),
@@ -41,9 +46,25 @@ impl CurrentMediaPage {
                     None => None,
                 };
                 match title {
-                    Some(title) => col = col.push(Text::new(title).size(title_size)),
-                    None => col = col.push(Text::new("Could Not Get Title").size(title_size)),
+                    Some(title) => inner_row = inner_row.push(Text::new(title).size(title_size)),
+                    None => inner_row = inner_row.push(Text::new("Could Not Get Title").size(title_size)),
                 }
+                if self.show_cancel_update {
+                    inner_row = inner_row
+                        .push(Text::new("").width(Length::Fill))
+                        .push(
+                            Button::new(
+                                &mut self.update_cancel_btn_state, 
+                                Text::new("Cancel")
+                                    .size(text_size)
+                                    .horizontal_alignment(HorizontalAlignment::Center)
+                            )
+                            .padding(button_padding)
+                            .style(style::Button::Danger)
+                            .on_press(CancelListUpdate(current.media_id).into())
+                        );
+                }
+                col = col.push(inner_row);
                 // current.current_media_string();
                 if let Some(current_detected) = &self.recognized {
                     col = col.push(Text::new(current_detected.current_media_string()).size(text_size));
@@ -84,6 +105,8 @@ impl CurrentMediaPage {
 impl Default for CurrentMediaPage {
     fn default() -> Self {
         CurrentMediaPage {
+            update_cancel_btn_state: button::State::default(),
+            show_cancel_update: false,
             current: None,
             recognized: None,
             cover: None,
@@ -104,15 +127,35 @@ impl Event for CoverChange {
 }
 
 #[derive(Debug, Clone)]
-pub struct MediaChange(pub Option<anilist::MediaList>, pub Option<recognition::Media>);
+pub struct MediaChange(pub Option<anilist::MediaList>, pub Option<recognition::Media>, pub bool);
 
 impl Event for MediaChange {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let MediaChange(media_list, recognized) = self;
+        let MediaChange(media_list, recognized, needs_update) = self;
+        app.page.current_media.show_cancel_update = needs_update;
         if media_list.is_none() {
             app.page.current_media.set_media_cover(None);
         }
         app.page.current_media.set_current_media(media_list, recognized);
+        Command::none()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CancelListUpdate(pub i32);
+
+impl Event for CancelListUpdate {
+    fn handle(self, app: &mut App) -> Command<Message> {
+        let CancelListUpdate(media_id) = self;
+        app.page.current_media.show_cancel_update = false;
+        let index = app.updates.find_index(media_id);
+        match index {
+            Some(index) => match app.updates.remove(index) {
+                Some(_) => println!("successfully removed media_id {} from queue", media_id),
+                None => println!("removal returned None for media_id {} in queue", media_id),
+            },
+            None => eprintln!("could not find media_id {} in list update queue", media_id),
+        }
         Command::none()
     }
 }

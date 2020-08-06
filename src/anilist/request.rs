@@ -184,3 +184,45 @@ pub async fn query_search(
         Err(anyhow!("update media variables was not a json object"))
     }
 }
+
+use std::collections::VecDeque;
+
+#[derive(Debug, Default)]
+pub struct ListUpdateQueue {
+    requests: VecDeque<MediaList>,
+}
+
+impl ListUpdateQueue {
+    pub fn enqueue(&mut self, media: MediaList) {
+        let mut found = false;
+        for m in self.requests.iter_mut() {
+            if m.media_id == *&media.media_id {
+                *m = media.clone();
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            self.requests.push_back(media);
+        }
+    }
+
+    pub fn dequeue(&mut self) -> Option<MediaList> {
+        self.requests.pop_front()
+    }
+
+    pub fn remove(&mut self, index: usize) -> Option<MediaList> {
+        self.requests.remove(index)
+    }
+
+    pub fn find_index(&self, media_id: i32) -> Option<usize> {
+        let mut i = 0;
+        for media in self.requests.iter() {
+            if media.media_id == media_id {
+                return Some(i);
+            }
+            i += 1;
+        }
+        None
+    }
+}
