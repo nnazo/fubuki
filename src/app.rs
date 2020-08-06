@@ -145,7 +145,35 @@ impl Application for App {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        message.handle(self)
+        let mut commands = vec![message.handle(self)];
+        if let Some(media_update) = self.updates.dequeue() {
+            if let Some(media) = &self.media {
+                if media.media_id == media_update.media_id {
+                    let already_sent = true;
+                    commands.push(forward_message(CancelListUpdate(media_update.media_id, already_sent).into()));
+                }
+            }
+            let token = {
+                let settings = settings::get_settings().read().unwrap();
+                settings.anilist.token().clone()
+            };
+            commands.push(
+                Command::perform(
+                    anilist::update_media(token, media_update),
+                    |result| match result {
+                        Ok(resp) => {
+                            println!("media update succeeded: {:#?}", resp);
+                            AuthFailed.into()
+                        }
+                        Err(err) => {
+                            println!("media update failed: {}", err);
+                            AuthFailed.into()
+                        }
+                    },
+                )
+            );
+        }
+        Command::batch(commands)
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
@@ -340,24 +368,8 @@ impl Event for MediaFound {
             commands.push(forward_message(msg));
         }
 
-        let token = {
-            let settings = settings::get_settings().read().unwrap();
-            settings.anilist.token().clone()
-        };
         if needs_update {
-            commands.push(Command::perform(
-                anilist::update_media(token, media),
-                |result| match result {
-                    Ok(resp) => {
-                        println!("media update succeeded: {:#?}", resp);
-                        AuthFailed.into()
-                    }
-                    Err(err) => {
-                        println!("media update failed: {}", err);
-                        AuthFailed.into()
-                    }
-                },
-            ));
+            app.updates.enqueue(media);
         } else {
             println!("update not needed");
         }
@@ -370,13 +382,15 @@ pub struct MediaNotFound;
 
 impl Event for MediaNotFound {
     fn handle(self, app: &mut App) -> Command<Message> {
+        let mut commands = Vec::new();
+        if let Some(_) = app.media {
+            commands.push(forward_message(MediaChange(None, None, false).into()));
+            commands.push(forward_message(CoverChange(None).into()));
+        }
         app.recognized = None;
         app.media = None;
         app.media_cover = None;
-        Command::batch(vec![
-            forward_message(MediaChange(None, None, false).into()),
-            forward_message(CoverChange(None).into()),
-        ])
+        Command::batch(commands)
     }
 }
 

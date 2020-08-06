@@ -10,7 +10,7 @@ use iced::{image, Column, Command, Element, Row, Text, Button, button, Horizonta
 #[derive(Debug, Clone)]
 pub struct CurrentMediaPage {
     update_cancel_btn_state: button::State,
-    show_cancel_update: bool,
+    pub show_cancel_update: bool,
     current: Option<anilist::MediaList>,
     recognized: Option<recognition::Media>,
     cover: Option<image::Handle>,
@@ -61,7 +61,7 @@ impl CurrentMediaPage {
                             )
                             .padding(button_padding)
                             .style(style::Button::Danger)
-                            .on_press(CancelListUpdate(current.media_id).into())
+                            .on_press(CancelListUpdate(current.media_id, false).into())
                         );
                 }
                 col = col.push(inner_row);
@@ -85,6 +85,10 @@ impl CurrentMediaPage {
             }
         }
         PageContainer::container(row.push(col).into()).into()
+    }
+
+    pub fn show_cancel_button(&mut self, show: bool) {
+        self.show_cancel_update = show;
     }
 
     pub fn set_current_media(
@@ -132,7 +136,8 @@ pub struct MediaChange(pub Option<anilist::MediaList>, pub Option<recognition::M
 impl Event for MediaChange {
     fn handle(self, app: &mut App) -> Command<Message> {
         let MediaChange(media_list, recognized, needs_update) = self;
-        app.page.current_media.show_cancel_update = needs_update;
+        println!("setting cancel button {}", needs_update);
+        app.page.current_media.show_cancel_button(needs_update);
         if media_list.is_none() {
             app.page.current_media.set_media_cover(None);
         }
@@ -142,19 +147,21 @@ impl Event for MediaChange {
 }
 
 #[derive(Debug, Clone)]
-pub struct CancelListUpdate(pub i32);
+pub struct CancelListUpdate(pub i32, pub bool);
 
 impl Event for CancelListUpdate {
     fn handle(self, app: &mut App) -> Command<Message> {
-        let CancelListUpdate(media_id) = self;
-        app.page.current_media.show_cancel_update = false;
-        let index = app.updates.find_index(media_id);
-        match index {
-            Some(index) => match app.updates.remove(index) {
-                Some(_) => println!("successfully removed media_id {} from queue", media_id),
-                None => println!("removal returned None for media_id {} in queue", media_id),
-            },
-            None => eprintln!("could not find media_id {} in list update queue", media_id),
+        let CancelListUpdate(media_id, already_sent) = self;
+        app.page.current_media.show_cancel_button(false);
+        if !already_sent {
+            let index = app.updates.find_index(media_id);
+            match index {
+                Some(index) => match app.updates.remove(index) {
+                    Some(_) => println!("successfully removed media_id {} from queue", media_id),
+                    None => println!("removal returned None for media_id {} in queue", media_id),
+                },
+                None => eprintln!("could not find media_id {} in list update queue", media_id),
+            }
         }
         Command::none()
     }
