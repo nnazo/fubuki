@@ -146,32 +146,35 @@ impl Application for App {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         let mut commands = vec![message.handle(self)];
-        if let Some(media_update) = self.updates.dequeue() {
-            if let Some(media) = &self.media {
-                if media.media_id == media_update.media_id {
-                    let already_sent = true;
-                    commands.push(forward_message(CancelListUpdate(media_update.media_id, already_sent).into()));
+        if !self.updates.is_waiting() {
+            if let Some(media_update) = self.updates.dequeue() {
+                self.updates.set_waiting(true);
+                if let Some(media) = &self.media {
+                    if media.media_id == media_update.media_id {
+                        let already_sent = true;
+                        commands.push(forward_message(CancelListUpdate(media_update.media_id, already_sent).into()));
+                    }
                 }
+                let token = {
+                    let settings = settings::get_settings().read().unwrap();
+                    settings.anilist.token().clone()
+                };
+                commands.push(
+                    Command::perform(
+                        anilist::update_media(token, media_update),
+                        |result| match result {
+                            Ok(resp) => {
+                                println!("media update succeeded: {:#?}", resp);
+                                MediaUpdateComplete.into()
+                            }
+                            Err(err) => {
+                                println!("media update failed: {}", err);
+                                MediaUpdateComplete.into()
+                            }
+                        },
+                    )
+                );
             }
-            let token = {
-                let settings = settings::get_settings().read().unwrap();
-                settings.anilist.token().clone()
-            };
-            commands.push(
-                Command::perform(
-                    anilist::update_media(token, media_update),
-                    |result| match result {
-                        Ok(resp) => {
-                            println!("media update succeeded: {:#?}", resp);
-                            AuthFailed.into()
-                        }
-                        Err(err) => {
-                            println!("media update failed: {}", err);
-                            AuthFailed.into()
-                        }
-                    },
-                )
-            );
         }
         Command::batch(commands)
     }
@@ -226,6 +229,7 @@ pub enum Message {
     CoverRetrieved,
     SearchMedia,
     SearchResults,
+    MediaUpdateComplete,
 
     // Nav
     CurrentMediaPress,
@@ -601,5 +605,15 @@ impl Event for CoverRetrieved {
         app.waiting_for_cover = false;
         app.media_cover = cover.clone();
         forward_message(CoverChange(cover).into())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MediaUpdateComplete;
+
+impl Event for MediaUpdateComplete {
+    fn handle(self, app: &mut App) -> Command<Message> {
+        app.updates.set_waiting(false);
+        Command::none()
     }
 }

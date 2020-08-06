@@ -189,6 +189,7 @@ use std::collections::VecDeque;
 
 #[derive(Debug, Default)]
 pub struct ListUpdateQueue {
+    waiting: bool,
     requests: VecDeque<MediaList>,
 }
 
@@ -207,8 +208,20 @@ impl ListUpdateQueue {
         }
     }
 
+    pub fn is_waiting(&self) -> bool {
+        self.waiting
+    }
+    
+    pub fn set_waiting(&mut self, waiting: bool) {
+        self.waiting = waiting;
+    }
+
     pub fn dequeue(&mut self) -> Option<MediaList> {
-        self.requests.pop_front()
+        if !self.waiting {
+            self.requests.pop_front()
+        } else {
+            None
+        }
     }
 
     pub fn remove(&mut self, index: usize) -> Option<MediaList> {
