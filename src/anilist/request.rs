@@ -186,17 +186,18 @@ pub async fn query_search(
 }
 
 use std::collections::VecDeque;
+use std::time::Instant;
 
 #[derive(Debug, Default)]
 pub struct ListUpdateQueue {
     waiting: bool,
-    requests: VecDeque<MediaList>,
+    requests: VecDeque<(MediaList, Instant)>,
 }
 
 impl ListUpdateQueue {
     pub fn enqueue(&mut self, media: MediaList) {
         let mut found = false;
-        for m in self.requests.iter_mut() {
+        for (m, _) in self.requests.iter_mut() {
             if m.media_id == *&media.media_id {
                 *m = media.clone();
                 found = true;
@@ -204,7 +205,7 @@ impl ListUpdateQueue {
             }
         }
         if !found {
-            self.requests.push_back(media);
+            self.requests.push_back((media, Instant::now()));
         }
     }
 
@@ -217,20 +218,34 @@ impl ListUpdateQueue {
     }
 
     pub fn dequeue(&mut self) -> Option<MediaList> {
-        if !self.waiting {
-            self.requests.pop_front()
-        } else {
-            None
+        match self.requests.front() {
+            Some((_, earlier)) => {
+                // TODO: add elapsed preference to user settings instead of 5 seconds
+                let elapsed = Instant::now().duration_since(*earlier);
+                if elapsed.as_secs() > 4 && !self.waiting {
+                    let front = self.requests.pop_front();
+                    match front {
+                        Some((media, _)) => Some(media),
+                        None => None,
+                    }
+                } else {
+                    None
+                }
+            },
+            None => None,
         }
     }
 
     pub fn remove(&mut self, index: usize) -> Option<MediaList> {
-        self.requests.remove(index)
+        match self.requests.remove(index) {
+            Some((media, _)) => Some(media),
+            None => None,
+        }
     }
 
     pub fn find_index(&self, media_id: i32) -> Option<usize> {
         let mut i = 0;
-        for media in self.requests.iter() {
+        for (media, _) in self.requests.iter() {
             if media.media_id == media_id {
                 return Some(i);
             }

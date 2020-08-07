@@ -159,6 +159,20 @@ impl Application for App {
                     let settings = settings::get_settings().read().unwrap();
                     settings.anilist.token().clone()
                 };
+                if let Some(media) = &media_update.media {
+                    if let Some(fmt) = &media.media_type {
+                        let list = match fmt {
+                            anilist::MediaType::Anime => &mut self.anime_list,
+                            anilist::MediaType::Manga => &mut self.manga_list,
+                        };
+                        if let Some(list) = list {
+                            let entry = list.find_entry_by_id_mut(media_update.media_id);
+                            if let Some(entry) = entry {
+                                *entry = media_update.clone();
+                            }
+                        }
+                    }
+                }
                 commands.push(
                     Command::perform(
                         anilist::update_media(token, media_update),
@@ -387,9 +401,13 @@ pub struct MediaNotFound;
 impl Event for MediaNotFound {
     fn handle(self, app: &mut App) -> Command<Message> {
         let mut commands = Vec::new();
-        if let Some(_) = app.media {
+        if let Some(media) = &app.media {
             commands.push(forward_message(MediaChange(None, None, false).into()));
             commands.push(forward_message(CoverChange(None).into()));
+            let index = app.updates.find_index(media.media_id);
+            if let Some(index) = index {
+                app.updates.remove(index);
+            }
         }
         app.recognized = None;
         app.media = None;
@@ -492,10 +510,12 @@ impl Event for SearchResults {
                             println!("progress offset was None");
                         }
 
+                        // Clone the media so we only mutate the entry in the user's list
+                        // when the request is going to be sent, since the update can be cancelled
+                        let mut media_copy = media.clone();
                         let needs_update =
-                            media.update_progress(recognized.progress, recognized.progress_volumes);
-                        let media = media.clone();
-                        return app.update(MediaFound(media, recognized, needs_update).into());
+                            media_copy.update_progress(recognized.progress, recognized.progress_volumes);
+                        return app.update(MediaFound(media_copy, recognized, needs_update).into());
                     } else {
                         println!("could not find media in list");
                         return app.update(MediaNotFound.into());
