@@ -1,4 +1,4 @@
-use iced::{button, container, Background, Color};
+use iced::{button, container, Background, Color, text_input};
 
 // const CONTAINER_BACKGROUND: Color = Color::from_rgb8(11u8, 22u8, 34u8);
 
@@ -90,4 +90,30 @@ impl container::StyleSheet for Container {
             },
         }
     }
+}
+
+pub struct Input;
+
+impl text_input::StyleSheet for Input {
+    fn active(&self) -> text_input::Style {
+        text_input::Style {
+            background: Background::Color(Color::from_rgb8(21u8, 31u8, 46u8)),
+            border_radius: 4,
+            border_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+            ..text_input::Style::default()
+        }
+    }
+    fn focused(&self) -> text_input::Style {
+        self.active()
+    }
+    fn placeholder_color(&self) -> Color {
+        Color::from_rgb8(159u8, 173u8, 189u8)
+    }
+    fn value_color(&self) -> Color {
+        Color::from_rgb8(159u8, 173u8, 189u8)
+    }
+    fn selection_color(&self) -> Color {
+        Color::from_rgb8(255u8, 255u8, 255u8)
+    }
+
 }

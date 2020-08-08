@@ -5,6 +5,7 @@ use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 use tokio::time;
+use crate::settings;
 
 #[derive(Deserialize, Debug)]
 pub struct QueryError {
@@ -220,9 +221,9 @@ impl ListUpdateQueue {
     pub fn dequeue(&mut self) -> Option<MediaList> {
         match self.requests.front() {
             Some((_, earlier)) => {
-                // TODO: add elapsed preference to user settings instead of 5 seconds
+                let update_delay = settings::get_settings().read().unwrap().update_delay;
                 let elapsed = Instant::now().duration_since(*earlier);
-                if elapsed.as_secs() > 4 && !self.waiting {
+                if elapsed.as_secs() >= update_delay && !self.waiting {
                     let front = self.requests.pop_front();
                     match front {
                         Some((media, _)) => Some(media),

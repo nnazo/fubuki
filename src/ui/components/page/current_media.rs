@@ -10,7 +10,7 @@ use iced::{image, Column, Command, Element, Row, Text, Button, button, Horizonta
 #[derive(Debug, Clone)]
 pub struct CurrentMediaPage {
     update_cancel_btn_state: button::State,
-    pub show_cancel_update: bool,
+    show_cancel_update: bool,
     current: Option<anilist::MediaList>,
     recognized: Option<recognition::Media>,
     cover: Option<image::Handle>,

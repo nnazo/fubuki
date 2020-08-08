@@ -39,11 +39,11 @@ impl App {
                         return UserFound(user).into();
                     }
                 }
-                AuthFailed.into()
+                NoMessage.into()
             }
             Err(err) => {
                 eprintln!("user query failed: {}", err);
-                AuthFailed.into()
+                NoMessage.into()
             }
         })
     }
@@ -96,13 +96,13 @@ impl App {
             Ok(resp) => match resp.data {
                 Some(search_resp) => match search_resp.page.media {
                     Some(results) => SearchResults(results, oneshot).into(),
-                    None => AuthFailed.into(),
+                    None => NoMessage.into(),
                 },
-                None => AuthFailed.into(),
+                None => NoMessage.into(),
             },
             Err(err) => {
                 eprintln!("search err: {}", err);
-                AuthFailed.into()
+                NoMessage.into()
             },
         })
     }
@@ -225,7 +225,7 @@ impl Application for App {
 
 use ui::components::{
     nav::{CurrentMediaPress, SettingsPress},
-    page::{CoverChange, Login, Logout, MediaChange, RefreshLists, CancelListUpdate},
+    page::{CoverChange, Login, Logout, MediaChange, RefreshLists, CancelListUpdate, SettingChange},
 };
 
 #[enum_dispatch]
@@ -256,6 +256,9 @@ pub enum Message {
     Logout,
     Login,
     CancelListUpdate,
+    SettingChange,
+
+    NoMessage
 }
 
 pub fn forward_message(msg: Message) -> Command<Message> {
@@ -296,7 +299,7 @@ impl Event for DetectMediaResult {
                         app.recognized = Some(detected_media.clone());
                         return forward_message(SearchMedia(detected_media, false).into());
                     } else {
-                        return forward_message(AuthFailed.into());
+                        return Command::none();
                     }
                 },
                 None => {
@@ -570,7 +573,7 @@ impl Event for UserFound {
                     Ok(handle) => AvatarRetrieved(handle).into(),
                     Err(err) => {
                         eprintln!("failed to get avatar {}", err);
-                        AuthFailed.into()
+                        NoMessage.into()
                     }
                 });
             }
@@ -634,6 +637,15 @@ pub struct MediaUpdateComplete;
 impl Event for MediaUpdateComplete {
     fn handle(self, app: &mut App) -> Command<Message> {
         app.updates.set_waiting(false);
+        Command::none()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NoMessage;
+
+impl Event for NoMessage {
+    fn handle(self, _app: &mut App) -> Command<Message> {
         Command::none()
     }
 }

@@ -1,11 +1,10 @@
 use anyhow::Result;
-use app_dirs2::*;
+use super::file_path;
 use serde::{Deserialize, Serialize};
 use std::{
     default::Default,
     fs::{File, OpenOptions},
     io::{BufReader, BufWriter},
-    path::PathBuf,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -14,14 +13,10 @@ pub struct AniListData {
 }
 
 impl AniListData {
-    const FUBUKI: AppInfo = AppInfo {
-        name: "Fubuki",
-        author: "nnazo",
-    };
     const FILE: &'static str = "anilist_data.json";
 
     pub fn load() -> Result<Self> {
-        let path = Self::file_path()?;
+        let path = file_path(Self::FILE)?;
         match File::open(&path) {
             Ok(file) => {
                 let rdr = BufReader::new(file);
@@ -51,7 +46,7 @@ impl AniListData {
     }
 
     pub fn save(&self) -> Result<()> {
-        let path = Self::file_path()?;
+        let path = file_path(Self::FILE)?;
         let file = OpenOptions::new()
             .create(true)
             .write(true)
@@ -60,12 +55,6 @@ impl AniListData {
         let writer = BufWriter::new(file);
         serde_json::to_writer_pretty(writer, &self)?;
         Ok(())
-    }
-
-    fn file_path() -> Result<PathBuf> {
-        let mut path = app_root(AppDataType::UserData, &Self::FUBUKI)?;
-        path.push(Self::FILE);
-        Ok(path)
     }
 }
 
