@@ -21,13 +21,10 @@ impl CurrentMediaPage {
     pub fn update(&mut self, _msg: Message) {}
 
     pub fn view(&mut self) -> Element<Message> {
-        let padding_size = 24;
         let spacing_size = 12;
         let inner_col_space = 6;
         let button_padding = 12;
-        let mut row = Row::<Message>::new()
-            .padding(padding_size)
-            .spacing(padding_size);
+        let mut row = Row::<Message>::new().spacing(24);
         match &mut self.cover {
             Some(cover) => row = row.push(image::Image::new(cover.clone())),
             None => row = row.push(image::Image::new(self.default_cover.clone())),

@@ -44,6 +44,7 @@ impl PageContainer {
         Container::new(Row::new().push(content))
             .height(Length::Fill)
             .width(Length::Fill)
+            .padding(24)
             .style(style::Container::Background)
     }
 }
