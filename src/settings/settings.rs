@@ -57,13 +57,13 @@ impl Settings {
 
     pub fn save(&self) -> Result<()> {
         let path = file_path(Self::FILE)?;
-            let file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .truncate(true)
-                .open(path)?;
-            let writer = BufWriter::new(file);
-            serde_json::to_writer_pretty(writer, &self)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, &self)?;
 
         // self.anilist.save()?;
         // self.recognition.save()?;

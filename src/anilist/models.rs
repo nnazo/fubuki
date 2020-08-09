@@ -66,27 +66,29 @@ pub struct MediaListCollection {
 }
 
 impl MediaListCollection {
-
-    pub fn compute_progress_offset_for_sequel(&self, id: i32, new_progress: i32) -> Option<(i32, i32)> {
+    pub fn compute_progress_offset_for_sequel(
+        &self,
+        id: i32,
+        new_progress: i32,
+    ) -> Option<(i32, i32)> {
         let media = self.find_entry_by_id(id);
         match media {
-            Some(entry) => {
-                match &entry.media {
-                    Some(media) => {
-                        let sequel = media.find_anime_sequel();
-                        if let Some(sequel) = sequel {
-                            let offset_progress = self.compute_progress_offset_by_id(sequel.id, new_progress as i32);
-                            if let Some(offset_progress) = offset_progress {
-                                Some((offset_progress, sequel.id))
-                            } else {
-                                None
-                            }
+            Some(entry) => match &entry.media {
+                Some(media) => {
+                    let sequel = media.find_anime_sequel();
+                    if let Some(sequel) = sequel {
+                        let offset_progress =
+                            self.compute_progress_offset_by_id(sequel.id, new_progress as i32);
+                        if let Some(offset_progress) = offset_progress {
+                            Some((offset_progress, sequel.id))
                         } else {
                             None
                         }
-                    },
-                    None => None,
+                    } else {
+                        None
+                    }
                 }
+                None => None,
             },
             None => None,
         }
@@ -115,7 +117,10 @@ impl MediaListCollection {
 
     pub fn compute_total_episodes(&self, media: &Media, new_progress: i32) -> Option<i32> {
         let relations = media.relations.as_ref()?;
-        let edges: Vec<&MediaEdge> = relations.edges.as_ref()?.iter()
+        let edges: Vec<&MediaEdge> = relations
+            .edges
+            .as_ref()?
+            .iter()
             .filter_map(|edge| edge.as_ref())
             .filter(|edge| match edge.relation_type {
                 Some(MediaRelation::Prequel) => true,
@@ -140,7 +145,8 @@ impl MediaListCollection {
                 match prequel_media.episodes {
                     Some(episodes) => {
                         if episodes + length < new_progress {
-                            let sub_offset = self.compute_total_episodes(prequel_media, new_progress);
+                            let sub_offset =
+                                self.compute_total_episodes(prequel_media, new_progress);
                             match sub_offset {
                                 Some(sub_offset) => Some(length + sub_offset),
                                 None => Some(length),
@@ -148,7 +154,7 @@ impl MediaListCollection {
                         } else {
                             Some(episodes + length)
                         }
-                    },
+                    }
                     None => None,
                 }
             } else {
@@ -432,18 +438,19 @@ impl Media {
 
     pub fn find_anime_sequel(&self) -> Option<&Media> {
         let relations = self.relations.as_ref()?;
-        let edges: Vec<&MediaEdge> = relations.edges.as_ref()?.iter()
+        let edges: Vec<&MediaEdge> = relations
+            .edges
+            .as_ref()?
+            .iter()
             .filter_map(|edge| edge.as_ref())
             .filter(|edge| match edge.relation_type {
                 Some(MediaRelation::Sequel) => true,
                 _ => false,
             })
             .filter(|edge| match edge.node.as_ref() {
-                Some(node) => {
-                    match node.format {
-                        Some(MediaFormat::Tv) => true,
-                        _ => false,
-                    }
+                Some(node) => match node.format {
+                    Some(MediaFormat::Tv) => true,
+                    _ => false,
                 },
                 None => false,
             })
@@ -486,7 +493,7 @@ pub struct MediaList {
     pub status: Option<MediaListStatus>,
     pub progress: Option<i32>,
     pub progress_volumes: Option<i32>,
-    // pub score: Option<f64>
+    pub score: Option<f64>,
     // repeat, priority, private, notes, hiddenFromStatusLists, customLists
     // startedAt, completedAt,
     pub started_at: Option<FuzzyDate>,
@@ -617,6 +624,32 @@ impl MediaList {
         updated
     }
 
+    pub fn progress_string(&self) -> String {
+        match &self.media {
+            Some(media) => match media.media_type {
+                Some(MediaType::Anime) => Self::progress_string_util(self.progress, media.episodes),
+                Some(MediaType::Manga) => Self::progress_string_util(self.progress, media.chapters),
+                None => Self::progress_string_util(self.progress, None),
+            },
+            None => Self::progress_string_util(self.progress, None),
+        }
+    }
+
+    pub fn progress_volumes_string(&self) -> String {
+        match &self.media {
+            Some(media) => Self::progress_string_util(self.progress_volumes, media.volumes),
+            None => Self::progress_string_util(self.progress, None),
+        }
+    }
+
+    fn progress_string_util(progress: Option<i32>, max: Option<i32>) -> String {
+        let max = match max {
+            Some(max) => format!("{}", max),
+            None => "?".to_string(),
+        };
+        format!("{} / {}", progress.unwrap_or_default(), max)
+    }
+
     // TODO: Check media format (doujin, movie, etc) when making this string
     // pub fn current_media_string(&self) -> String {
     //     match &self.media {
@@ -711,6 +744,21 @@ pub enum MediaType {
     Manga,
 }
 
+impl Default for MediaType {
+    fn default() -> Self {
+        MediaType::Anime
+    }
+}
+
+impl MediaType {
+    pub fn string(&self) -> &str {
+        match self {
+            MediaType::Anime => "Anime",
+            MediaType::Manga => "Manga",
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MediaCoverImage {
     large: Option<String>,
@@ -760,6 +808,23 @@ pub enum MediaFormat {
     Novel,
     #[serde(rename = "ONE_SHOT")]
     Oneshot,
+}
+
+impl MediaFormat {
+    pub fn str(&self) -> &str {
+        match self {
+            MediaFormat::Tv => "TV",
+            MediaFormat::TvShort => "TV Short",
+            MediaFormat::Movie => "Movie",
+            MediaFormat::Special => "Special",
+            MediaFormat::Ova => "OVA",
+            MediaFormat::Ona => "ONA",
+            MediaFormat::Music => "Music",
+            MediaFormat::Manga => "Manga",
+            MediaFormat::Novel => "Light Novel",
+            MediaFormat::Oneshot => "Oneshot",
+        }
+    }
 }
 
 #[cfg(test)]

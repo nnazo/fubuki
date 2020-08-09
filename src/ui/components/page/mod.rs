@@ -1,4 +1,4 @@
-use crate::{app::Message, ui::style};
+use crate::{anilist::MediaType, app::Message, ui::style};
 use iced::{Container, Element, Length, Row};
 
 mod settings;
@@ -7,8 +7,13 @@ pub use settings::*;
 mod current_media;
 pub use current_media::*;
 
+mod media_list;
+pub use media_list::*;
+
 #[derive(Debug, Clone)]
 pub enum Page {
+    Anime,
+    Manga,
     CurrentMedia,
     Settings,
 }
@@ -19,11 +24,13 @@ impl Default for Page {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PageContainer {
     pub page: Page,
     pub current_media: CurrentMediaPage,
     pub settings: SettingsPage,
+    pub anime: MediaListPage,
+    pub manga: MediaListPage,
 }
 
 impl PageContainer {
@@ -33,6 +40,8 @@ impl PageContainer {
         match self.page {
             Page::CurrentMedia => self.current_media.view(),
             Page::Settings => self.settings.view(),
+            Page::Anime => self.anime.view(),
+            Page::Manga => self.manga.view(),
         }
     }
 
@@ -46,5 +55,17 @@ impl PageContainer {
             .width(Length::Fill)
             .padding(24)
             .style(style::Container::Background)
+    }
+}
+
+impl Default for PageContainer {
+    fn default() -> Self {
+        PageContainer {
+            page: Page::default(),
+            current_media: CurrentMediaPage::default(),
+            settings: SettingsPage::default(),
+            anime: MediaListPage::new(MediaType::Anime),
+            manga: MediaListPage::new(MediaType::Manga),
+        }
     }
 }

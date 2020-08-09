@@ -1,11 +1,11 @@
 use super::models::{Media, MediaList, MediaListCollection, MediaType, User};
+use crate::settings;
 use anyhow::{anyhow, Result};
 use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 use tokio::time;
-use crate::settings;
 
 #[derive(Deserialize, Debug)]
 pub struct QueryError {
@@ -213,7 +213,7 @@ impl ListUpdateQueue {
     pub fn is_waiting(&self) -> bool {
         self.waiting
     }
-    
+
     pub fn set_waiting(&mut self, waiting: bool) {
         self.waiting = waiting;
     }
@@ -232,7 +232,7 @@ impl ListUpdateQueue {
                 } else {
                     None
                 }
-            },
+            }
             None => None,
         }
     }

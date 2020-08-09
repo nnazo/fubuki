@@ -6,11 +6,11 @@ pub use anilist::AniListData;
 pub use recognition::RecognitionData;
 pub use settings::{Settings, SETTINGS};
 
-use once_cell::sync::Lazy;
-use std::sync::RwLock;
-use app_dirs2::*;
 use anyhow::Result;
+use app_dirs2::*;
+use once_cell::sync::Lazy;
 use std::path::PathBuf;
+use std::sync::RwLock;
 
 pub fn get_settings() -> &'static Lazy<RwLock<settings::Settings>> {
     &SETTINGS

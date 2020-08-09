@@ -25,8 +25,8 @@ pub struct App {
     pub nav: components::Nav,
     pub page: components::PageContainer,
     pub user: Option<anilist::User>,
-    pub anime_list: Option<anilist::MediaListCollection>,
-    pub manga_list: Option<anilist::MediaListCollection>,
+    // pub anime_list: Option<anilist::MediaListCollection>,
+    // pub manga_list: Option<anilist::MediaListCollection>,
     pub updates: anilist::ListUpdateQueue,
 }
 
@@ -91,20 +91,27 @@ impl App {
         )
     }
 
-    pub fn query_search(token: String, recognized: recognition::Media, oneshot: bool) -> Command<Message> {
-        Command::perform(anilist::query_search(Some(token), recognized.title, recognized.media_type), move |result| match result {
-            Ok(resp) => match resp.data {
-                Some(search_resp) => match search_resp.page.media {
-                    Some(results) => SearchResults(results, oneshot).into(),
+    pub fn query_search(
+        token: String,
+        recognized: recognition::Media,
+        oneshot: bool,
+    ) -> Command<Message> {
+        Command::perform(
+            anilist::query_search(Some(token), recognized.title, recognized.media_type),
+            move |result| match result {
+                Ok(resp) => match resp.data {
+                    Some(search_resp) => match search_resp.page.media {
+                        Some(results) => SearchResults(results, oneshot).into(),
+                        None => NoMessage.into(),
+                    },
                     None => NoMessage.into(),
                 },
-                None => NoMessage.into(),
+                Err(err) => {
+                    eprintln!("search err: {}", err);
+                    NoMessage.into()
+                }
             },
-            Err(err) => {
-                eprintln!("search err: {}", err);
-                NoMessage.into()
-            },
-        })
+        )
     }
 }
 
@@ -122,8 +129,8 @@ impl Application for App {
             nav: components::Nav::new(),
             page: components::PageContainer::default(),
             user: None,
-            anime_list: None,
-            manga_list: None,
+            // anime_list: None,
+            // manga_list: None,
             updates: anilist::ListUpdateQueue::default(),
         };
         let command = match settings::get_settings().write().unwrap().anilist.token() {
@@ -152,7 +159,9 @@ impl Application for App {
                 if let Some(media) = &self.media {
                     if media.media_id == media_update.media_id {
                         let already_sent = true;
-                        commands.push(forward_message(CancelListUpdate(media_update.media_id, already_sent).into()));
+                        commands.push(forward_message(
+                            CancelListUpdate(media_update.media_id, already_sent).into(),
+                        ));
                     }
                 }
                 let token = {
@@ -162,8 +171,8 @@ impl Application for App {
                 if let Some(media) = &media_update.media {
                     if let Some(fmt) = &media.media_type {
                         let list = match fmt {
-                            anilist::MediaType::Anime => &mut self.anime_list,
-                            anilist::MediaType::Manga => &mut self.manga_list,
+                            anilist::MediaType::Anime => self.page.anime.get_list_mut(),
+                            anilist::MediaType::Manga => self.page.manga.get_list_mut(),
                         };
                         if let Some(list) = list {
                             let entry = list.find_entry_by_id_mut(media_update.media_id);
@@ -173,21 +182,19 @@ impl Application for App {
                         }
                     }
                 }
-                commands.push(
-                    Command::perform(
-                        anilist::update_media(token, media_update),
-                        |result| match result {
-                            Ok(resp) => {
-                                println!("media update succeeded: {:#?}", resp);
-                                MediaUpdateComplete.into()
-                            }
-                            Err(err) => {
-                                println!("media update failed: {}", err);
-                                MediaUpdateComplete.into()
-                            }
-                        },
-                    )
-                );
+                commands.push(Command::perform(
+                    anilist::update_media(token, media_update),
+                    |result| match result {
+                        Ok(resp) => {
+                            println!("media update succeeded: {:#?}", resp);
+                            MediaUpdateComplete.into()
+                        }
+                        Err(err) => {
+                            println!("media update failed: {}", err);
+                            MediaUpdateComplete.into()
+                        }
+                    },
+                ));
             }
         }
         Command::batch(commands)
@@ -224,8 +231,11 @@ impl Application for App {
 }
 
 use ui::components::{
-    nav::{CurrentMediaPress, SettingsPress},
-    page::{CoverChange, Login, Logout, MediaChange, RefreshLists, CancelListUpdate, SettingChange},
+    nav::{AnimeListPress, CurrentMediaPress, MangaListPress, SettingsPress},
+    page::{
+        CancelListUpdate, CoverChange, ListGroupSelected, Login, Logout, MediaChange, RefreshLists,
+        SettingChange,
+    },
 };
 
 #[enum_dispatch]
@@ -246,6 +256,8 @@ pub enum Message {
     MediaUpdateComplete,
 
     // Nav
+    AnimeListPress,
+    MangaListPress,
     CurrentMediaPress,
     SettingsPress,
 
@@ -257,8 +269,9 @@ pub enum Message {
     Login,
     CancelListUpdate,
     SettingChange,
+    ListGroupSelected,
 
-    NoMessage
+    NoMessage,
 }
 
 pub fn forward_message(msg: Message) -> Command<Message> {
@@ -301,11 +314,11 @@ impl Event for DetectMediaResult {
                     } else {
                         return Command::none();
                     }
-                },
+                }
                 None => {
                     app.recognized = Some(detected_media.clone());
-                    return forward_message(SearchMedia(detected_media, false).into())
-                },
+                    return forward_message(SearchMedia(detected_media, false).into());
+                }
             }
 
             // let media = {
@@ -433,7 +446,7 @@ impl Event for SearchMedia {
             Some(tok) => {
                 app.recognized = Some(recognized.clone());
                 App::query_search(tok, recognized, oneshot)
-            },
+            }
             None => Command::none(),
         }
     }
@@ -445,43 +458,56 @@ pub struct SearchResults(Vec<Option<anilist::Media>>, bool);
 impl Event for SearchResults {
     fn handle(self, app: &mut App) -> Command<Message> {
         let SearchResults(results, oneshot) = self;
-        let results: Vec<Option<&anilist::Media>> = results.iter().filter_map(|m| m.as_ref()).map(|m| Some(m)).collect();
+        let results: Vec<Option<&anilist::Media>> = results
+            .iter()
+            .filter_map(|m| m.as_ref())
+            .map(|m| Some(m))
+            .collect();
         if let Some(mut recognized) = app.recognized.clone() {
-            let id = anilist::MediaListCollection::best_id_for_search(&results, &recognized.title, oneshot);
+            let id = anilist::MediaListCollection::best_id_for_search(
+                &results,
+                &recognized.title,
+                oneshot,
+            );
             if let Some(mut id) = id {
                 let progress = {
                     let list = match recognized.media_type {
-                        anilist::MediaType::Anime => &app.anime_list,
-                        anilist::MediaType::Manga => &app.manga_list,
+                        anilist::MediaType::Anime => app.page.anime.get_list(),
+                        anilist::MediaType::Manga => app.page.manga.get_list(),
                     };
                     let progress = match recognized.media_type {
                         anilist::MediaType::Anime => {
                             match list {
                                 Some(list) => match recognized.progress {
                                     Some(new_progress) => {
-                                        let mut offset_progress = list.compute_progress_offset_by_id(id, new_progress as i32);
-                                        
+                                        let mut offset_progress = list
+                                            .compute_progress_offset_by_id(id, new_progress as i32);
+
                                         if let Some(offset) = offset_progress {
                                             if offset < 0 {
                                                 // try to find offset for immediate sequel
-                                                let sequel_offset = list.compute_progress_offset_for_sequel(id, new_progress as i32);
+                                                let sequel_offset = list
+                                                    .compute_progress_offset_for_sequel(
+                                                        id,
+                                                        new_progress as i32,
+                                                    );
                                                 match sequel_offset {
                                                     Some((offset, sequel_id)) => {
                                                         offset_progress = Some(offset);
                                                         id = sequel_id
-                                                    },
-                                                    None => {},
+                                                    }
+                                                    None => {}
                                                 }
                                             }
                                         }
 
                                         offset_progress
-                                    },
+                                    }
                                     None => None,
                                 },
                                 None => None,
                             }
-                        },
+                        }
                         _ => None,
                     };
 
@@ -489,8 +515,8 @@ impl Event for SearchResults {
                 };
 
                 let list = match recognized.media_type {
-                    anilist::MediaType::Anime => &mut app.anime_list,
-                    anilist::MediaType::Manga => &mut app.manga_list,
+                    anilist::MediaType::Anime => app.page.anime.get_list_mut(),
+                    anilist::MediaType::Manga => app.page.manga.get_list_mut(),
                 };
                 if let Some(list) = list {
                     let entry = list.find_entry_by_id_mut(id);
@@ -500,11 +526,17 @@ impl Event for SearchResults {
                         if let Some(progress) = progress {
                             if let Some(recognized_progress) = recognized.progress {
                                 if progress > 0 && progress < recognized_progress as i32 {
-                                    println!("offset progress to {} instead of {}", progress, recognized_progress);
+                                    println!(
+                                        "offset progress to {} instead of {}",
+                                        progress, recognized_progress
+                                    );
                                     recognized.progress = Some(progress as f64);
                                 } else {
                                     recognized.progress = None;
-                                    println!("something went wrong with detected progress, {} became {}", recognized_progress, progress);
+                                    println!(
+                                        "something went wrong with detected progress, {} became {}",
+                                        recognized_progress, progress
+                                    );
                                 }
                             } else {
                                 println!("no recognized progress");
@@ -516,8 +548,8 @@ impl Event for SearchResults {
                         // Clone the media so we only mutate the entry in the user's list
                         // when the request is going to be sent, since the update can be cancelled
                         let mut media_copy = media.clone();
-                        let needs_update =
-                            media_copy.update_progress(recognized.progress, recognized.progress_volumes);
+                        let needs_update = media_copy
+                            .update_progress(recognized.progress, recognized.progress_volumes);
                         return app.update(MediaFound(media_copy, recognized, needs_update).into());
                     } else {
                         println!("could not find media in list");
@@ -610,11 +642,17 @@ pub struct ListRetrieved {
 
 impl Event for ListRetrieved {
     fn handle(self, app: &mut App) -> Command<Message> {
-        app.anime_list = self.anime_list;
-        app.manga_list = self.manga_list;
+        app.page.anime.set_list(self.anime_list);
+        app.page.manga.set_list(self.manga_list);
         println!("got the list response");
-        println!("  anime list is some? {}", app.anime_list.is_some());
-        println!("  manga list is some? {}", app.manga_list.is_some());
+        println!(
+            "  anime list is some? {}",
+            app.page.anime.get_list().is_some()
+        );
+        println!(
+            "  manga list is some? {}",
+            app.page.manga.get_list().is_some()
+        );
         Command::none()
     }
 }
