@@ -5,7 +5,9 @@ use crate::{
     recognition,
     ui::style,
 };
-use iced::{image, Column, Command, Element, Row, Text, Button, button, HorizontalAlignment, Length};
+use iced::{
+    button, image, Button, Column, Command, Element, HorizontalAlignment, Length, Row, Text,
+};
 
 #[derive(Debug, Clone)]
 pub struct CurrentMediaPage {
@@ -44,27 +46,29 @@ impl CurrentMediaPage {
                 };
                 match title {
                     Some(title) => inner_row = inner_row.push(Text::new(title).size(title_size)),
-                    None => inner_row = inner_row.push(Text::new("Could Not Get Title").size(title_size)),
+                    None => {
+                        inner_row =
+                            inner_row.push(Text::new("Could Not Get Title").size(title_size))
+                    }
                 }
                 if self.show_cancel_update {
-                    inner_row = inner_row
-                        .push(Text::new("").width(Length::Fill))
-                        .push(
-                            Button::new(
-                                &mut self.update_cancel_btn_state, 
-                                Text::new("Cancel")
-                                    .size(text_size)
-                                    .horizontal_alignment(HorizontalAlignment::Center)
-                            )
-                            .padding(button_padding)
-                            .style(style::Button::Danger)
-                            .on_press(CancelListUpdate(current.media_id, false).into())
-                        );
+                    inner_row = inner_row.push(Text::new("").width(Length::Fill)).push(
+                        Button::new(
+                            &mut self.update_cancel_btn_state,
+                            Text::new("Cancel")
+                                .size(text_size)
+                                .horizontal_alignment(HorizontalAlignment::Center),
+                        )
+                        .padding(button_padding)
+                        .style(style::Button::Danger)
+                        .on_press(CancelListUpdate(current.media_id, false).into()),
+                    );
                 }
                 col = col.push(inner_row);
                 // current.current_media_string();
                 if let Some(current_detected) = &self.recognized {
-                    col = col.push(Text::new(current_detected.current_media_string()).size(text_size));
+                    col = col
+                        .push(Text::new(current_detected.current_media_string()).size(text_size));
                     if let Some(media) = &mut current.media {
                         if let Some(desc) = media.description() {
                             col = col.push(
@@ -128,7 +132,11 @@ impl Event for CoverChange {
 }
 
 #[derive(Debug, Clone)]
-pub struct MediaChange(pub Option<anilist::MediaList>, pub Option<recognition::Media>, pub bool);
+pub struct MediaChange(
+    pub Option<anilist::MediaList>,
+    pub Option<recognition::Media>,
+    pub bool,
+);
 
 impl Event for MediaChange {
     fn handle(self, app: &mut App) -> Command<Message> {
@@ -138,7 +146,9 @@ impl Event for MediaChange {
         if media_list.is_none() {
             app.page.current_media.set_media_cover(None);
         }
-        app.page.current_media.set_current_media(media_list, recognized);
+        app.page
+            .current_media
+            .set_current_media(media_list, recognized);
         Command::none()
     }
 }

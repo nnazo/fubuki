@@ -1,4 +1,4 @@
-use iced::{button, container, Background, Color, text_input};
+use iced::{button, container, text_input, Background, Color};
 
 // const CONTAINER_BACKGROUND: Color = Color::from_rgb8(11u8, 22u8, 34u8);
 
@@ -6,6 +6,7 @@ pub enum Button {
     Nav { selected: bool },
     Accent,
     Danger,
+    ListGroup { selected: bool },
 }
 
 impl button::StyleSheet for Button {
@@ -40,6 +41,23 @@ impl button::StyleSheet for Button {
                 text_color: Color::from_rgb8(255u8, 255u8, 255u8),
                 ..button::Style::default()
             },
+            Button::ListGroup { selected } => {
+                if *selected {
+                    button::Style {
+                        background: Some(Background::Color(Color::from_rgb8(21u8, 31u8, 46u8))),
+                        border_radius: 4,
+                        text_color: Color::from_rgb8(144u8, 168u8, 191u8),
+                        ..button::Style::default()
+                    }
+                } else {
+                    button::Style {
+                        background: Some(Background::Color(Color::from_rgb8(11u8, 22u8, 34u8))),
+                        border_radius: 4,
+                        text_color: Color::from_rgb8(114u8, 138u8, 161u8),
+                        ..button::Style::default()
+                    }
+                }
+            }
         }
     }
 
@@ -56,6 +74,7 @@ impl button::StyleSheet for Button {
                 }
                 Button::Accent => Color::from_rgb8(255u8, 255u8, 255u8),
                 Button::Danger => Color::from_rgb8(255u8, 255u8, 255u8),
+                Button::ListGroup { .. } => active.text_color,
             },
             ..active
         }
@@ -69,6 +88,7 @@ impl button::StyleSheet for Button {
 pub enum Container {
     Background,
     NavBackground,
+    EntryRow,
 }
 
 impl container::StyleSheet for Container {
@@ -86,6 +106,13 @@ impl container::StyleSheet for Container {
                 border_radius: 0,
                 border_width: 0,
                 text_color: None,
+                border_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+            },
+            Container::EntryRow => container::Style {
+                background: Some(Background::Color(Color::from_rgb8(21u8, 31u8, 46u8))),
+                border_radius: 4,
+                border_width: 0,
+                text_color: Some(Color::from_rgb8(159u8, 173u8, 189u8)),
                 border_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
             },
         }
@@ -115,5 +142,4 @@ impl text_input::StyleSheet for Input {
     fn selection_color(&self) -> Color {
         Color::from_rgb8(255u8, 255u8, 255u8)
     }
-
 }
