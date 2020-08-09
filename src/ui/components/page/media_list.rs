@@ -4,7 +4,7 @@ use crate::{
     ui::style,
 };
 use iced::{
-    button, scrollable, Button, Column, Command, Container, Element, Length, Row, Scrollable, Text,
+    button, scrollable, Button, Column, Command, Container, Element, Length, Row, Scrollable, Text, VerticalAlignment
 };
 use once_cell::sync::Lazy;
 use std::default::Default;
@@ -136,8 +136,9 @@ impl MediaListPage {
     ) -> Option<Element<'a, Message>> {
         let text_size = 16;
         Some(
-            Button::new(button_state, Text::new(name).size(text_size))
+            Button::new(button_state, Text::new(name).size(text_size).vertical_alignment(VerticalAlignment::Center))
                 .width(Length::Units(128))
+                .height(Length::Units(32))
                 .on_press(ListGroupSelected { index, media_type }.into())
                 .style(style::Button::ListGroup {
                     selected: index == selected_index,

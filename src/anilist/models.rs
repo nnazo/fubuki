@@ -375,8 +375,12 @@ impl MediaListCollection {
             let media = entry.media.as_ref();
             if let Some(media) = media {
                 for title in media.all_titles() {
-                    let sim = strsim::normalized_levenshtein(title, search);
-                    // println!("    similarity of {} between {} and {}", sim, search, title);
+                    let sim = if title.is_ascii() && search.is_ascii() {
+                        strsim::normalized_levenshtein(&title.to_lowercase(), &search.to_lowercase())
+                    } else {
+                        strsim::normalized_levenshtein(title, search)
+                    };
+                    println!("    similarity of {} between {} and {}", sim, search, title);
                     if sim >= 0.85 {
                         return (Some(entry), sim);
                     }
