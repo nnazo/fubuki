@@ -64,7 +64,7 @@ impl button::StyleSheet for Button {
                 border_radius: 0,
                 text_color: Color::from_rgb8(144u8, 168u8, 191u8),
                 ..button::Style::default()
-            }
+            },
         }
     }
 
@@ -142,7 +142,7 @@ impl text_input::StyleSheet for Input {
         self.active()
     }
     fn placeholder_color(&self) -> Color {
-        Color::from_rgb8(159u8, 173u8, 189u8)
+        Color::from_rgb8(144u8, 168u8, 191u8)
     }
     fn value_color(&self) -> Color {
         Color::from_rgb8(159u8, 173u8, 189u8)

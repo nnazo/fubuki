@@ -4,7 +4,8 @@ use crate::{
     ui::style,
 };
 use iced::{
-    button, scrollable, Button, Column, Command, Container, Element, Length, Row, Scrollable, Text, VerticalAlignment, Align
+    button, scrollable, text_input, Align, Button, Column, Command, Container, Element, Length,
+    Row, Scrollable, Text, TextInput, VerticalAlignment,
 };
 use once_cell::sync::Lazy;
 use std::default::Default;
@@ -14,6 +15,8 @@ pub struct MediaListPage {
     list: Option<anilist::MediaListCollection>,
     media_type: anilist::MediaType,
     selected_index: usize,
+    filter: String,
+    filter_state: text_input::State,
     list_selection_btn_states: Vec<button::State>,
     list_scroll_state: scrollable::State,
     inc_progress_btn_states: Vec<button::State>,
@@ -43,7 +46,7 @@ impl MediaListPage {
                             self.inc_progress_btn_states.clear();
                             self.inc_progress_btn_states
                                 .resize(entry_count, button::State::default());
-                        },
+                        }
                         anilist::MediaType::Manga => {
                             self.inc_progress_btn_states.clear();
                             self.inc_progress_btn_states
@@ -51,7 +54,7 @@ impl MediaListPage {
                             self.inc_progress_vol_btn_states.clear();
                             self.inc_progress_vol_btn_states
                                 .resize(entry_count, button::State::default());
-                        },
+                        }
                     }
                 }
             }
@@ -75,28 +78,40 @@ impl MediaListPage {
         self.selected_index = index;
     }
 
+    pub fn set_filter(&mut self, value: String) {
+        self.filter = value;
+    }
+
     // pub fn update(&mut self, _msg: Message) {}
 
     pub fn view(&mut self) -> Element<Message> {
-        let media_type = self.media_type.clone();
+        let media_type = *&self.media_type;
         let button_states = &mut self.list_selection_btn_states;
-        let list = self.list.as_mut();
+        let list = self.list.as_ref();
         match list {
             Some(list) => {
                 let mut row = Row::new().spacing(12).push(Self::container(
-                    Self::list_selection_view(
-                        button_states,
-                        list,
-                        media_type.clone(),
-                        self.selected_index,
-                    )
-                    .into(),
+                    Column::new()
+                        .spacing(12)
+                        .push(Self::list_selection_view(
+                            button_states,
+                            list,
+                            media_type.clone(),
+                            self.selected_index,
+                        ))
+                        .push(Self::filter(
+                            &mut self.filter_state,
+                            &self.filter,
+                            *&self.media_type,
+                        ))
+                        .into(),
                 ));
 
                 if let Some(list_view) = Self::list_view(
                     &mut self.list_scroll_state,
                     list,
-                    media_type.clone(),
+                    &self.filter,
+                    *&media_type,
                     self.selected_index,
                     &mut self.inc_progress_btn_states,
                     &mut self.inc_progress_vol_btn_states,
@@ -108,22 +123,22 @@ impl MediaListPage {
             }
             None => {
                 let message = format!(
-                    "It seems you have not tracked any {}, or you are not logged in.",
+                    "Oh no! It seems like you have not tracked any {}.",
                     self.media_type.string().to_lowercase()
                 );
-                Self::container(Text::new(message).into())
+                Self::container(Text::new(message).size(18).into())
             }
         }
     }
 
     pub fn list_selection_view<'a>(
         button_states: &'a mut Vec<button::State>,
-        list: &mut anilist::MediaListCollection,
+        list: &anilist::MediaListCollection,
         media_type: anilist::MediaType,
         selected_index: usize,
     ) -> Element<'a, Message> {
         let mut list_buttons = Column::new().spacing(2);
-        if let Some(lists) = &mut list.lists {
+        if let Some(lists) = &list.lists {
             let mut i = 0usize;
             let group_names: Vec<&String> = lists
                 .iter()
@@ -159,20 +174,26 @@ impl MediaListPage {
     ) -> Option<Element<'a, Message>> {
         let text_size = 16;
         Some(
-            Button::new(button_state, Text::new(name).size(text_size).vertical_alignment(VerticalAlignment::Center))
-                .width(Length::Units(128))
-                .height(Length::Units(32))
-                .on_press(ListGroupSelected { index, media_type }.into())
-                .style(style::Button::ListGroup {
-                    selected: index == selected_index,
-                })
-                .into(),
+            Button::new(
+                button_state,
+                Text::new(name)
+                    .size(text_size)
+                    .vertical_alignment(VerticalAlignment::Center),
+            )
+            .width(Length::Units(128))
+            .height(Length::Units(32))
+            .on_press(ListGroupSelected { index, media_type }.into())
+            .style(style::Button::ListGroup {
+                selected: index == selected_index,
+            })
+            .into(),
         )
     }
 
     pub fn list_view<'a>(
         scroll_state: &'a mut scrollable::State,
-        list: &'a mut anilist::MediaListCollection,
+        list: &'a anilist::MediaListCollection,
+        filter: &str,
         media_type: anilist::MediaType,
         index: usize,
         inc_progress_btn_states: &'a mut Vec<button::State>,
@@ -185,17 +206,20 @@ impl MediaListPage {
             col = col.push(header);
         }
 
-        let group = list.lists.as_mut()?.get_mut(index)?.as_mut()?;
-        let entries: Vec<&mut anilist::MediaList> = group
+        let group = list.lists.as_ref()?.get(index)?.as_ref()?;
+        let entries: Vec<&anilist::MediaList> = group
             .entries
-            .as_mut()?
-            .iter_mut()
-            .filter_map(|entry| entry.as_mut())
+            .as_ref()?
+            .iter()
+            .filter_map(|entry| entry.as_ref())
+            .filter(|entry| entry.titles_contain(filter))
             .collect();
         let mut inc_button_state = inc_progress_btn_states.iter_mut();
         let mut inc_vol_button_state = inc_progress_vol_btn_states.iter_mut();
         for entry in entries {
-            if let Some(entry_row) = Self::entry_row(entry, inc_button_state.next(), inc_vol_button_state.next()) {
+            if let Some(entry_row) =
+                Self::entry_row(entry, inc_button_state.next(), inc_vol_button_state.next())
+            {
                 col = col.push(entry_row);
             }
         }
@@ -203,9 +227,32 @@ impl MediaListPage {
         Some(scroll.push(col).into())
     }
 
+    pub fn filter<'a>(
+        state: &'a mut text_input::State,
+        value: &str,
+        media_type: anilist::MediaType,
+    ) -> Element<'a, Message> {
+        let text_size = 16;
+        TextInput::new(state, "Filter list", value, move |value| {
+            ListFilterTextChange {
+                value,
+                media_type: *&media_type,
+            }
+            .into()
+        })
+        .size(text_size)
+        .padding(6)
+        .width(Length::Units(128))
+        .style(style::Input)
+        .into()
+    }
+
     pub fn header_row(media_type: anilist::MediaType) -> Option<Element<'static, Message>> {
         let text_size = 14;
-        let mut row = Row::new().width(Length::Fill).spacing(8).align_items(Align::Center);
+        let mut row = Row::new()
+            .width(Length::Fill)
+            .spacing(8)
+            .align_items(Align::Center);
         static ANIME_LABELS: Lazy<Vec<&str>> =
             Lazy::new(|| vec!["Title", "Score", "Progress", "Format"]);
         static MANGA_LABELS: Lazy<Vec<&str>> =
@@ -233,7 +280,11 @@ impl MediaListPage {
         Some(Self::entry_container(row))
     }
 
-    pub fn entry_row<'a>(entry: &mut anilist::MediaList, inc_button_state: Option<&'a mut button::State>, inc_vol_button_state: Option<&'a mut button::State>) -> Option<Element<'a, Message>> {
+    pub fn entry_row<'a>(
+        entry: &anilist::MediaList,
+        inc_button_state: Option<&'a mut button::State>,
+        inc_vol_button_state: Option<&'a mut button::State>,
+    ) -> Option<Element<'a, Message>> {
         let media = entry.media.as_ref()?;
         let text_size = 12;
 
@@ -266,18 +317,19 @@ impl MediaListPage {
             Row::new()
                 .width(Length::FillPortion(*fill))
                 .spacing(4)
-                .align_items(Align::Center)    
-                .push(
-                    Text::new(entry.progress_string()).size(text_size)
-                )
+                .align_items(Align::Center)
+                .push(Text::new(entry.progress_string()).size(text_size))
                 .push(
                     Button::new(inc_button_state?, Text::new("+").size(10))
                         .style(style::Button::Increment)
-                        .on_press(IncrementMediaProgress {
-                            media_id: media.id,
-                            media_type: *media.media_type.as_ref()?,
-                            is_volume_progress: false,
-                        }.into())
+                        .on_press(
+                            IncrementMediaProgress {
+                                media_id: media.id,
+                                media_type: *media.media_type.as_ref()?,
+                                is_volume_progress: false,
+                            }
+                            .into(),
+                        ),
                 )
         };
 
@@ -295,18 +347,19 @@ impl MediaListPage {
                 let progress_vol = Row::new()
                     .width(Length::FillPortion(*fill))
                     .spacing(4)
-                    .align_items(Align::Center)    
-                    .push(
-                        Text::new(entry.progress_volumes_string()).size(text_size)
-                    )
+                    .align_items(Align::Center)
+                    .push(Text::new(entry.progress_volumes_string()).size(text_size))
                     .push(
                         Button::new(inc_vol_button_state?, Text::new("+").size(10))
                             .style(style::Button::Increment)
-                            .on_press(IncrementMediaProgress {
-                                media_id: media.id,
-                                media_type: *media.media_type.as_ref()?,
-                                is_volume_progress: true,
-                            }.into())
+                            .on_press(
+                                IncrementMediaProgress {
+                                    media_id: media.id,
+                                    media_type: *media.media_type.as_ref()?,
+                                    is_volume_progress: true,
+                                }
+                                .into(),
+                            ),
                     );
                 row = row.push(progress_vol);
             }
@@ -377,20 +430,26 @@ impl Event for IncrementMediaProgress {
 
         if let Some(entry) = entry {
             let (progress, cap) = match self.is_volume_progress {
-                true => (&mut entry.progress_volumes, match &entry.media {
-                    Some(media) => media.volumes,
-                    None => None,
-                }),
-                false => (&mut entry.progress, match self.media_type {
-                    anilist::MediaType::Anime => match &entry.media {
-                        Some(media) => media.episodes,
+                true => (
+                    &mut entry.progress_volumes,
+                    match &entry.media {
+                        Some(media) => media.volumes,
                         None => None,
                     },
-                    anilist::MediaType::Manga => match &entry.media {
-                        Some(media) => media.chapters,
-                        None => None,
-                    }
-                }),
+                ),
+                false => (
+                    &mut entry.progress,
+                    match self.media_type {
+                        anilist::MediaType::Anime => match &entry.media {
+                            Some(media) => media.episodes,
+                            None => None,
+                        },
+                        anilist::MediaType::Manga => match &entry.media {
+                            Some(media) => media.chapters,
+                            None => None,
+                        },
+                    },
+                ),
             };
             if let Some(progress) = progress {
                 match cap {
@@ -399,11 +458,11 @@ impl Event for IncrementMediaProgress {
                             *progress += 1;
                             app.updates.enqueue(entry.clone());
                         }
-                    },
+                    }
                     None => {
                         *progress += 1;
                         app.updates.enqueue(entry.clone());
-                    },
+                    }
                 }
             }
         }
@@ -412,3 +471,18 @@ impl Event for IncrementMediaProgress {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ListFilterTextChange {
+    value: String,
+    media_type: anilist::MediaType,
+}
+
+impl Event for ListFilterTextChange {
+    fn handle(self, app: &mut App) -> Command<Message> {
+        match self.media_type {
+            anilist::MediaType::Anime => app.page.anime.set_filter(self.value),
+            anilist::MediaType::Manga => app.page.manga.set_filter(self.value),
+        }
+        Command::none()
+    }
+}
