@@ -4,7 +4,7 @@ use crate::{
     ui::style,
 };
 use iced::{
-    button, scrollable, Button, Column, Command, Container, Element, Length, Row, Scrollable, Text, VerticalAlignment
+    button, scrollable, Button, Column, Command, Container, Element, Length, Row, Scrollable, Text, VerticalAlignment, Align
 };
 use once_cell::sync::Lazy;
 use std::default::Default;
@@ -205,7 +205,7 @@ impl MediaListPage {
 
     pub fn header_row(media_type: anilist::MediaType) -> Option<Element<'static, Message>> {
         let text_size = 14;
-        let mut row = Row::new().width(Length::Fill).spacing(8);
+        let mut row = Row::new().width(Length::Fill).spacing(8).align_items(Align::Center);
         static ANIME_LABELS: Lazy<Vec<&str>> =
             Lazy::new(|| vec!["Title", "Score", "Progress", "Format"]);
         static MANGA_LABELS: Lazy<Vec<&str>> =
@@ -265,7 +265,8 @@ impl MediaListPage {
         let progress = {
             Row::new()
                 .width(Length::FillPortion(*fill))
-                .spacing(4)    
+                .spacing(4)
+                .align_items(Align::Center)    
                 .push(
                     Text::new(entry.progress_string()).size(text_size)
                 )
@@ -283,6 +284,7 @@ impl MediaListPage {
         let mut row = Row::new()
             .width(Length::Fill)
             .spacing(8)
+            .align_items(Align::Center)
             .push(title)
             .push(score)
             .push(progress);
@@ -292,7 +294,8 @@ impl MediaListPage {
                 fill = fill_portions.next().unwrap_or(&1u16);
                 let progress_vol = Row::new()
                     .width(Length::FillPortion(*fill))
-                    .spacing(4)    
+                    .spacing(4)
+                    .align_items(Align::Center)    
                     .push(
                         Text::new(entry.progress_volumes_string()).size(text_size)
                     )
