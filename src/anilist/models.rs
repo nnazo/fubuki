@@ -678,8 +678,9 @@ impl MediaList {
 
     pub fn titles_contain(&self, filter: &str) -> bool {
         if let Some(media) = &self.media {
+            let filter = filter.to_lowercase();
             for title in media.all_titles() {
-                if title.contains(filter) {
+                if title.to_lowercase().contains(&filter) {
                     return true;
                 }
             }
