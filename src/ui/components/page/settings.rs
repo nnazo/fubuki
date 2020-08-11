@@ -24,7 +24,7 @@ impl SettingsPage {
         let mut col = Column::new()
             .spacing(12)
             .push(Self::header_title("AniList"));
-        let input_padding = 10;
+        let input_padding = 6;
 
         let mut anilist_inner = Column::new().spacing(12);
 
@@ -76,6 +76,7 @@ impl SettingsPage {
                 .style(style::Input)
                 .padding(input_padding)
                 .width(Length::Units(80))
+                .size(16)
                 .on_submit(
                     SettingChange::UpdateDelay(self.update_delay_value.clone(), true).into(),
                 ),

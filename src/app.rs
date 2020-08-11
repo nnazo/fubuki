@@ -233,8 +233,8 @@ impl Application for App {
 use ui::components::{
     nav::{AnimeListPress, CurrentMediaPress, MangaListPress, SettingsPress},
     page::{
-        CancelListUpdate, CoverChange, ListGroupSelected, Login, Logout, MediaChange, RefreshLists,
-        SettingChange, IncrementMediaProgress,
+        CancelListUpdate, CoverChange, IncrementMediaProgress, ListFilterTextChange,
+        ListGroupSelected, Login, Logout, MediaChange, RefreshLists, SettingChange,
     },
 };
 
@@ -271,6 +271,7 @@ pub enum Message {
     SettingChange,
     ListGroupSelected,
     IncrementMediaProgress,
+    ListFilterTextChange,
 
     NoMessage,
 }
@@ -551,7 +552,9 @@ impl Event for SearchResults {
                         let mut media_copy = media.clone();
                         let needs_update = media_copy
                             .update_progress(recognized.progress, recognized.progress_volumes);
-                        return forward_message(MediaFound(media_copy, recognized, needs_update).into());
+                        return forward_message(
+                            MediaFound(media_copy, recognized, needs_update).into(),
+                        );
                     } else {
                         println!("could not find media in list");
                         return forward_message(MediaNotFound.into());

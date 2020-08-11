@@ -68,12 +68,10 @@ pub struct MediaListCollection {
 impl MediaListCollection {
     pub fn count_entries(&self) -> usize {
         match &self.lists {
-            Some(lists) => {
-                lists
-                    .iter()
-                    .filter_map(|group| group.as_ref())
-                    .fold(0, |x, group| x + group.count_entries())
-            },
+            Some(lists) => lists
+                .iter()
+                .filter_map(|group| group.as_ref())
+                .fold(0, |x, group| x + group.count_entries()),
             None => 0,
         }
     }
@@ -388,7 +386,10 @@ impl MediaListCollection {
             if let Some(media) = media {
                 for title in media.all_titles() {
                     let sim = if title.is_ascii() && search.is_ascii() {
-                        strsim::normalized_levenshtein(&title.to_lowercase(), &search.to_lowercase())
+                        strsim::normalized_levenshtein(
+                            &title.to_lowercase(),
+                            &search.to_lowercase(),
+                        )
                     } else {
                         strsim::normalized_levenshtein(title, search)
                     };
@@ -673,6 +674,17 @@ impl MediaList {
             None => "?".to_string(),
         };
         format!("{} / {}", progress.unwrap_or_default(), max)
+    }
+
+    pub fn titles_contain(&self, filter: &str) -> bool {
+        if let Some(media) = &self.media {
+            for title in media.all_titles() {
+                if title.contains(filter) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     // TODO: Check media format (doujin, movie, etc) when making this string
