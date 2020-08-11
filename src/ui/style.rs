@@ -7,6 +7,7 @@ pub enum Button {
     Accent,
     Danger,
     ListGroup { selected: bool },
+    Increment,
 }
 
 impl button::StyleSheet for Button {
@@ -58,6 +59,12 @@ impl button::StyleSheet for Button {
                     }
                 }
             }
+            Button::Increment => button::Style {
+                background: Some(Background::Color(Color::from_rgb8(21u8, 31u8, 46u8))),
+                border_radius: 0,
+                text_color: Color::from_rgb8(144u8, 168u8, 191u8),
+                ..button::Style::default()
+            }
         }
     }
 
@@ -72,9 +79,10 @@ impl button::StyleSheet for Button {
                         active.text_color
                     }
                 }
-                Button::Accent => Color::from_rgb8(255u8, 255u8, 255u8),
-                Button::Danger => Color::from_rgb8(255u8, 255u8, 255u8),
+                Button::Accent => active.text_color,
+                Button::Danger => active.text_color,
                 Button::ListGroup { .. } => active.text_color,
+                Button::Increment => active.text_color,
             },
             ..active
         }

@@ -66,6 +66,18 @@ pub struct MediaListCollection {
 }
 
 impl MediaListCollection {
+    pub fn count_entries(&self) -> usize {
+        match &self.lists {
+            Some(lists) => {
+                lists
+                    .iter()
+                    .filter_map(|group| group.as_ref())
+                    .fold(0, |x, group| x + group.count_entries())
+            },
+            None => 0,
+        }
+    }
+
     pub fn compute_progress_offset_for_sequel(
         &self,
         id: i32,
@@ -375,8 +387,12 @@ impl MediaListCollection {
             let media = entry.media.as_ref();
             if let Some(media) = media {
                 for title in media.all_titles() {
-                    let sim = strsim::normalized_levenshtein(title, search);
-                    // println!("    similarity of {} between {} and {}", sim, search, title);
+                    let sim = if title.is_ascii() && search.is_ascii() {
+                        strsim::normalized_levenshtein(&title.to_lowercase(), &search.to_lowercase())
+                    } else {
+                        strsim::normalized_levenshtein(title, search)
+                    };
+                    println!("    similarity of {} between {} and {}", sim, search, title);
                     if sim >= 0.85 {
                         return (Some(entry), sim);
                     }
@@ -472,6 +488,15 @@ pub struct MediaListGroup {
     pub is_custom_list: Option<bool>,
     pub is_split_completed_list: Option<bool>,
     pub status: Option<MediaListStatus>,
+}
+
+impl MediaListGroup {
+    pub fn count_entries(&self) -> usize {
+        match &self.entries {
+            Some(entries) => entries.iter().filter_map(|entry| entry.as_ref()).count(),
+            None => 0,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -737,7 +762,7 @@ pub struct MediaTitle {
     pub user_preferred: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MediaType {
     Anime,
