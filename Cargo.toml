@@ -19,7 +19,6 @@ description = "A cross-platform anime and manga tracker for AniList"
 # path = "src/main.rs"
 
 [dependencies]
-#iced = { version = "0.1.1", features = ["canvas"] }
 iced = { git = "https://github.com/hecrj/iced", rev = "869fa6b", features = ["canvas", "tokio", "image", "debug"] }
 regex = "1.3.7"
 serde = { version = "1.0.114", features = ["derive"] }
@@ -28,7 +27,6 @@ reqwest = { version = "0.10.6", features = ["json"] }
 oauth2 = "2.0.0"
 open = "1.4.0"
 url = "1.7.2"
-lazy_static = "1.4.0"
 tokio = { version = "0.2.21", features = ["full"] }
 app_dirs2 = "2.0.4"
 anyhow = "1.0.31"

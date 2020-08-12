@@ -771,7 +771,6 @@ dependencies = [
  "enum_dispatch",
  "iced",
  "itertools",
- "lazy_static",
  "oauth2",
  "once_cell",
  "open",

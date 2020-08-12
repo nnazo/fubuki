@@ -1,9 +1,5 @@
-// #[macro_use] extern crate lazy_static;
 #[cfg(windows)]
 extern crate winapi;
-#[cfg(windows)]
-#[macro_use]
-extern crate lazy_static;
 
 pub mod anilist;
 pub mod app;

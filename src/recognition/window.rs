@@ -1,16 +1,13 @@
 #[cfg(windows)]
 pub fn get_window_titles() -> Vec<String> {
     use std::{
-        /*alloc::{Layout, alloc, dealloc}, */ ffi::OsString,
-        /*slice::from_raw_parts, */ os::windows::prelude::*, sync::Mutex,
+        ffi::OsString, os::windows::prelude::*, sync::Mutex,
     };
     use winapi::{
-        shared::{minwindef, windef},
-        um::winuser,
+        shared::{minwindef, windef}, um::winuser,
     };
-    lazy_static! {
-        static ref TITLES: Mutex<Vec<String>> = Mutex::new(vec![]);
-    }
+    use once_cell::sync::Lazy;
+    static TITLES: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(vec![]));
     extern "system" fn callback(hwnd: windef::HWND, _lparam: minwindef::LPARAM) -> i32 {
         if hwnd == std::ptr::null_mut() {
             0
@@ -24,23 +21,16 @@ pub fn get_window_titles() -> Vec<String> {
                 return 1;
             }
             let name = OsString::from_wide(&buf[..len as usize]);
-            let str = name.to_str().unwrap().to_string(); // turns into Option<&str> then String
+            let str = name.to_str().unwrap().to_string();
             if !str.is_empty() {
-                // thanks windows
                 TITLES.lock().unwrap().push(str);
             }
             1
         }
     }
     TITLES.lock().unwrap().clear();
-    unsafe {
-        winuser::EnumWindows(Some(callback), 0);
-    }
-    // let mut copy = Vec::new();
-    // let titles: &mut Vec<String> = &mut*(TITLES.lock().unwrap());
-    // titles.iter().for_each(|title| copy.push(String::from(title)));        // i have no idea if TITLES being static
-    // copy                                                                   // within the function means it's created
-    TITLES.lock().unwrap().to_vec() // every time it's called
+    unsafe { winuser::EnumWindows(Some(callback), 0); }
+    TITLES.lock().unwrap().to_vec()
 }
 
 #[cfg(not(windows))]
