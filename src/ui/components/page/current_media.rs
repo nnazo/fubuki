@@ -124,10 +124,10 @@ impl Default for CurrentMediaPage {
 pub struct CoverChange(pub Option<image::Handle>);
 
 impl Event for CoverChange {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let CoverChange(cover) = self;
         app.page.current_media.set_media_cover(cover);
-        Command::none()
+        None
     }
 }
 
@@ -139,7 +139,7 @@ pub struct MediaChange(
 );
 
 impl Event for MediaChange {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let MediaChange(media_list, recognized, needs_update) = self;
         println!("setting cancel button {}", needs_update);
         app.page.current_media.show_cancel_button(needs_update);
@@ -149,7 +149,7 @@ impl Event for MediaChange {
         app.page
             .current_media
             .set_current_media(media_list, recognized);
-        Command::none()
+        None
     }
 }
 
@@ -157,7 +157,7 @@ impl Event for MediaChange {
 pub struct CancelListUpdate(pub i32, pub bool);
 
 impl Event for CancelListUpdate {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let CancelListUpdate(media_id, already_sent) = self;
         app.page.current_media.show_cancel_button(false);
         if !already_sent {
@@ -170,6 +170,6 @@ impl Event for CancelListUpdate {
                 None => eprintln!("could not find media_id {} in list update queue", media_id),
             }
         }
-        Command::none()
+        None
     }
 }

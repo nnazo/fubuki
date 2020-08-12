@@ -13,7 +13,7 @@ pub struct CurrentMediaPress {
 }
 
 impl Event for CurrentMediaPress {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         if !self.selected {
             println!("pressed media");
             app.nav.settings_selected = false;
@@ -22,7 +22,7 @@ impl Event for CurrentMediaPress {
             app.nav.media_selected = true;
             app.page.change_page(super::Page::CurrentMedia);
         }
-        Command::none()
+        None
     }
 }
 
@@ -32,7 +32,7 @@ pub struct SettingsPress {
 }
 
 impl Event for SettingsPress {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         if !self.selected {
             println!("pressed settings");
             app.nav.settings_selected = true;
@@ -41,7 +41,7 @@ impl Event for SettingsPress {
             app.nav.media_selected = false;
             app.page.change_page(super::Page::Settings);
         }
-        Command::none()
+        None
     }
 }
 
@@ -51,7 +51,7 @@ pub struct AnimeListPress {
 }
 
 impl Event for AnimeListPress {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         if !self.selected {
             println!("pressed anime list");
             app.nav.settings_selected = false;
@@ -60,7 +60,7 @@ impl Event for AnimeListPress {
             app.nav.media_selected = false;
             app.page.change_page(super::Page::Anime);
         }
-        Command::none()
+        None
     }
 }
 
@@ -70,7 +70,7 @@ pub struct MangaListPress {
 }
 
 impl Event for MangaListPress {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         if !self.selected {
             println!("pressed manga list");
             app.nav.settings_selected = false;
@@ -79,7 +79,7 @@ impl Event for MangaListPress {
             app.nav.media_selected = false;
             app.page.change_page(super::Page::Manga);
         }
-        Command::none()
+        None
     }
 }
 

@@ -152,7 +152,11 @@ impl Application for App {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        let mut commands = vec![message.handle(self)];
+        let mut commands = Vec::new();
+        if let Some(msg) = message.handle(self) {
+            commands.push(msg);
+        }
+
         if !self.updates.is_waiting() {
             if let Some(media_update) = self.updates.dequeue() {
                 self.updates.set_waiting(true);
@@ -286,17 +290,17 @@ async fn nothing(msg: Message) -> Message {
 
 #[enum_dispatch(Message)]
 pub trait Event {
-    fn handle(self, app: &mut App) -> Command<Message>;
+    fn handle(self, app: &mut App) -> Option<Command<Message>>;
 }
 
 #[derive(Debug, Clone)]
 pub struct DetectMedia;
 
 impl Event for DetectMedia {
-    fn handle(self, _app: &mut App) -> Command<Message> {
-        Command::perform(MediaParser::detect_media(), |media| {
+    fn handle(self, _app: &mut App) -> Option<Command<Message>> {
+        Some(Command::perform(MediaParser::detect_media(), |media| {
             DetectMediaResult(media).into()
-        })
+        }))
     }
 }
 
@@ -304,7 +308,7 @@ impl Event for DetectMedia {
 pub struct DetectMediaResult(Option<recognition::Media>);
 
 impl Event for DetectMediaResult {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let DetectMediaResult(media) = self;
         if let Some(detected_media) = media {
             println!("detected media {:#?}", detected_media);
@@ -312,41 +316,18 @@ impl Event for DetectMediaResult {
                 Some(media) => {
                     if *media != detected_media {
                         app.recognized = Some(detected_media.clone());
-                        return forward_message(SearchMedia(detected_media, false).into());
+                        return Some(forward_message(SearchMedia(detected_media, false).into()));
                     } else {
-                        return Command::none();
+                        return None;
                     }
                 }
                 None => {
                     app.recognized = Some(detected_media.clone());
-                    return forward_message(SearchMedia(detected_media, false).into());
+                    return Some(forward_message(SearchMedia(detected_media, false).into()));
                 }
             }
-
-            // let media = {
-            //     let list = match detected_media.media_type {
-            //         anilist::MediaType::Anime => &mut app.anime_list,
-            //         anilist::MediaType::Manga => &mut app.manga_list,
-            //     };
-
-            //     match list {
-            //         Some(list) => list.search_for_title(&detected_media.title),
-            //         None => None,
-            //     }
-            // };
-
-            // if let Some(media) = media {
-            //     // TODO: Check if the detected progress is larger than the media's maximum number of episodes/chapters
-            //     // This is most likely an nth season where the count rolled over
-            //     let needs_update =
-            //         media.update_progress(detected_media.progress, detected_media.progress_volumes);
-            //     let media = media.clone();
-            //     return app.update(MediaFound(media, detected_media, needs_update).into());
-            // } else {
-            //     return app.update(MediaNotFound.into());
-            // }
         }
-        forward_message(MediaNotFound.into())
+        Some(forward_message(MediaNotFound.into()))
     }
 }
 
@@ -354,7 +335,7 @@ impl Event for DetectMediaResult {
 pub struct MediaFound(anilist::MediaList, recognition::Media, bool);
 
 impl Event for MediaFound {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let MediaFound(media, detected_media, needs_update) = self;
         let (cover_url, needs_fetch) = match &media.media {
             Some(media) => {
@@ -409,7 +390,7 @@ impl Event for MediaFound {
         } else {
             println!("update not needed");
         }
-        return Command::batch(commands);
+        return Some(Command::batch(commands));
     }
 }
 
@@ -417,20 +398,16 @@ impl Event for MediaFound {
 pub struct MediaNotFound;
 
 impl Event for MediaNotFound {
-    fn handle(self, app: &mut App) -> Command<Message> {
-        let mut commands = Vec::new();
-        if let Some(media) = &app.media {
-            commands.push(forward_message(MediaChange(None, None, false).into()));
-            commands.push(forward_message(CoverChange(None).into()));
-            let index = app.updates.find_index(media.media_id);
-            if let Some(index) = index {
-                app.updates.remove(index);
-            }
-        }
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
+        let media_id = app.media.as_ref()?.media_id;
         app.recognized = None;
         app.media = None;
         app.media_cover = None;
-        Command::batch(commands)
+        let index = app.updates.find_index(media_id);
+        if let Some(index) = index {
+            app.updates.remove(index);
+        }
+        Some(forward_message(MediaChange(None, None, false).into()))
     }
 }
 
@@ -438,19 +415,14 @@ impl Event for MediaNotFound {
 pub struct SearchMedia(recognition::Media, bool);
 
 impl Event for SearchMedia {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let SearchMedia(recognized, oneshot) = self;
+        app.recognized = Some(recognized.clone());
         let token = {
             let settings = settings::get_settings().read().unwrap();
             settings.anilist.token().clone()
-        };
-        match token {
-            Some(tok) => {
-                app.recognized = Some(recognized.clone());
-                App::query_search(tok, recognized, oneshot)
-            }
-            None => Command::none(),
-        }
+        }?;
+        Some(App::query_search(token, recognized, oneshot))
     }
 }
 
@@ -458,112 +430,106 @@ impl Event for SearchMedia {
 pub struct SearchResults(Vec<Option<anilist::Media>>, bool);
 
 impl Event for SearchResults {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let SearchResults(results, oneshot) = self;
         let results: Vec<Option<&anilist::Media>> = results
             .iter()
             .filter_map(|m| m.as_ref())
             .map(|m| Some(m))
             .collect();
-        if let Some(mut recognized) = app.recognized.clone() {
-            let id = anilist::MediaListCollection::best_id_for_search(
-                &results,
-                &recognized.title,
-                oneshot,
-            );
-            if let Some(mut id) = id {
-                let progress = {
-                    let list = match recognized.media_type {
-                        anilist::MediaType::Anime => app.page.anime.get_list(),
-                        anilist::MediaType::Manga => app.page.manga.get_list(),
-                    };
-                    let progress = match recognized.media_type {
-                        anilist::MediaType::Anime => {
-                            match list {
-                                Some(list) => match recognized.progress {
-                                    Some(new_progress) => {
-                                        let mut offset_progress = list
-                                            .compute_progress_offset_by_id(id, new_progress as i32);
+        let mut recognized = app.recognized.clone()?;
+        let mut id =
+            anilist::MediaListCollection::best_id_for_search(&results, &recognized.title, oneshot)?;
+        let progress = {
+            let list = match recognized.media_type {
+                anilist::MediaType::Anime => app.page.anime.get_list(),
+                anilist::MediaType::Manga => app.page.manga.get_list(),
+            };
+            let progress = match recognized.media_type {
+                anilist::MediaType::Anime => {
+                    match list {
+                        Some(list) => match recognized.progress {
+                            Some(new_progress) => {
+                                let mut offset_progress =
+                                    list.compute_progress_offset_by_id(id, new_progress as i32);
 
-                                        if let Some(offset) = offset_progress {
-                                            if offset < 0 {
-                                                // try to find offset for immediate sequel
-                                                let sequel_offset = list
-                                                    .compute_progress_offset_for_sequel(
-                                                        id,
-                                                        new_progress as i32,
-                                                    );
-                                                match sequel_offset {
-                                                    Some((offset, sequel_id)) => {
-                                                        offset_progress = Some(offset);
-                                                        id = sequel_id
-                                                    }
-                                                    None => {}
-                                                }
+                                if let Some(offset) = offset_progress {
+                                    if offset < 0 {
+                                        // try to find offset for immediate sequel
+                                        let sequel_offset = list
+                                            .compute_progress_offset_for_sequel(
+                                                id,
+                                                new_progress as i32,
+                                            );
+                                        match sequel_offset {
+                                            Some((offset, sequel_id)) => {
+                                                offset_progress = Some(offset);
+                                                id = sequel_id
                                             }
+                                            None => {}
                                         }
-
-                                        offset_progress
                                     }
-                                    None => None,
-                                },
-                                None => None,
-                            }
-                        }
-                        _ => None,
-                    };
-
-                    progress
-                };
-
-                let list = match recognized.media_type {
-                    anilist::MediaType::Anime => app.page.anime.get_list_mut(),
-                    anilist::MediaType::Manga => app.page.manga.get_list_mut(),
-                };
-                if let Some(list) = list {
-                    let entry = list.find_entry_by_id_mut(id);
-                    if let Some(media) = entry {
-                        // Check if the detected progress is larger than the media's maximum number of episodes/chapters
-                        // This is most likely an nth season where the count rolled over
-                        if let Some(progress) = progress {
-                            if let Some(recognized_progress) = recognized.progress {
-                                if progress > 0 && progress < recognized_progress as i32 {
-                                    println!(
-                                        "offset progress to {} instead of {}",
-                                        progress, recognized_progress
-                                    );
-                                    recognized.progress = Some(progress as f64);
-                                } else {
-                                    recognized.progress = None;
-                                    println!(
-                                        "something went wrong with detected progress, {} became {}",
-                                        recognized_progress, progress
-                                    );
                                 }
-                            } else {
-                                println!("no recognized progress");
-                            }
-                        } else {
-                            println!("progress offset was None");
-                        }
 
-                        // Clone the media so we only mutate the entry in the user's list
-                        // when the request is going to be sent, since the update can be cancelled
-                        let mut media_copy = media.clone();
-                        let needs_update = media_copy
-                            .update_progress(recognized.progress, recognized.progress_volumes);
-                        return forward_message(
-                            MediaFound(media_copy, recognized, needs_update).into(),
-                        );
-                    } else {
-                        println!("could not find media in list");
-                        return forward_message(MediaNotFound.into());
+                                offset_progress
+                            }
+                            None => None,
+                        },
+                        None => None,
                     }
                 }
+                _ => None,
+            };
+
+            progress
+        };
+
+        let list = match recognized.media_type {
+            anilist::MediaType::Anime => app.page.anime.get_list_mut(),
+            anilist::MediaType::Manga => app.page.manga.get_list_mut(),
+        }?;
+
+        let entry = list.find_entry_by_id_mut(id);
+        match entry {
+            Some(media) => {
+                // Check if the detected progress is larger than the media's maximum number of episodes/chapters
+                // This is most likely an nth season where the count rolled over
+                if let Some(progress) = progress {
+                    if let Some(recognized_progress) = recognized.progress {
+                        if progress > 0 && progress < recognized_progress as i32 {
+                            println!(
+                                "offset progress to {} instead of {}",
+                                progress, recognized_progress
+                            );
+                            recognized.progress = Some(progress as f64);
+                        } else {
+                            recognized.progress = None;
+                            println!(
+                                "something went wrong with detected progress, {} became {}",
+                                recognized_progress, progress
+                            );
+                        }
+                    } else {
+                        println!("no recognized progress");
+                    }
+                } else {
+                    println!("progress offset was None");
+                }
+
+                // Clone the media so we only mutate the entry in the user's list
+                // when the request is going to be sent, since the update can be cancelled
+                let mut media_copy = media.clone();
+                let needs_update =
+                    media_copy.update_progress(recognized.progress, recognized.progress_volumes);
+                Some(forward_message(
+                    MediaFound(media_copy, recognized, needs_update).into(),
+                ))
+            }
+            None => {
+                println!("could not find media in list");
+                Some(forward_message(MediaNotFound.into()))
             }
         }
-
-        Command::none()
     }
 }
 
@@ -571,14 +537,14 @@ impl Event for SearchResults {
 pub struct Authorized(String);
 
 impl Event for Authorized {
-    fn handle(self, _app: &mut App) -> Command<Message> {
+    fn handle(self, _app: &mut App) -> Option<Command<Message>> {
         let Authorized(token) = self;
         let mut settings = settings::get_settings().write().unwrap();
         settings.anilist.save_token(token.as_str());
         if let Err(err) = settings.anilist.save() {
             println!("couldn't save token: {}", err);
         }
-        App::query_user(token)
+        Some(App::query_user(token))
     }
 }
 
@@ -586,8 +552,8 @@ impl Event for Authorized {
 pub struct AuthFailed;
 
 impl Event for AuthFailed {
-    fn handle(self, _app: &mut App) -> Command<Message> {
-        Command::none()
+    fn handle(self, _app: &mut App) -> Option<Command<Message>> {
+        None
     }
 }
 
@@ -595,26 +561,22 @@ impl Event for AuthFailed {
 pub struct UserFound(anilist::User);
 
 impl Event for UserFound {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let UserFound(user) = self;
         app.user = Some(user);
         println!("got user {:#?}", app.user);
 
         app.page.settings.logged_in = true;
-
-        if let Some(user) = &app.user {
-            let url = user.get_avatar_url();
-            if let Some(url) = url {
-                return Command::perform(ui::util::fetch_image(url), |result| match result {
-                    Ok(handle) => AvatarRetrieved(handle).into(),
-                    Err(err) => {
-                        eprintln!("failed to get avatar {}", err);
-                        NoMessage.into()
-                    }
-                });
-            }
-        }
-        Command::none()
+        Some(Command::perform(
+            ui::util::fetch_image(app.user.as_ref()?.get_avatar_url()?),
+            |result| match result {
+                Ok(handle) => AvatarRetrieved(handle).into(),
+                Err(err) => {
+                    eprintln!("failed to get avatar {}", err);
+                    NoMessage.into()
+                }
+            },
+        ))
     }
 }
 
@@ -622,19 +584,14 @@ impl Event for UserFound {
 pub struct AvatarRetrieved(image::Handle);
 
 impl Event for AvatarRetrieved {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let AvatarRetrieved(handle) = self;
         println!("got avatar");
         app.nav.set_avatar(Some(handle));
 
         let settings = settings::get_settings().read().unwrap();
-        let token = settings.anilist.token();
-        if let Some(user) = &app.user {
-            if let Some(token) = token {
-                return App::query_user_lists(token.clone(), user.id);
-            }
-        }
-        Command::none()
+        let token = settings.anilist.token().as_ref()?;
+        Some(App::query_user_lists(token.clone(), app.user.as_ref()?.id))
     }
 }
 
@@ -645,7 +602,7 @@ pub struct ListRetrieved {
 }
 
 impl Event for ListRetrieved {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         app.page.anime.set_list(self.anime_list);
         app.page.manga.set_list(self.manga_list);
         println!("got the list response");
@@ -657,7 +614,7 @@ impl Event for ListRetrieved {
             "  manga list is some? {}",
             app.page.manga.get_list().is_some()
         );
-        Command::none()
+        None
     }
 }
 
@@ -665,11 +622,11 @@ impl Event for ListRetrieved {
 pub struct CoverRetrieved(Option<image::Handle>);
 
 impl Event for CoverRetrieved {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let CoverRetrieved(cover) = self;
         app.waiting_for_cover = false;
         app.media_cover = cover.clone();
-        forward_message(CoverChange(cover).into())
+        Some(forward_message(CoverChange(cover).into()))
     }
 }
 
@@ -677,9 +634,9 @@ impl Event for CoverRetrieved {
 pub struct MediaUpdateComplete;
 
 impl Event for MediaUpdateComplete {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         app.updates.set_waiting(false);
-        Command::none()
+        None
     }
 }
 
@@ -687,7 +644,7 @@ impl Event for MediaUpdateComplete {
 pub struct NoMessage;
 
 impl Event for NoMessage {
-    fn handle(self, _app: &mut App) -> Command<Message> {
-        Command::none()
+    fn handle(self, _app: &mut App) -> Option<Command<Message>> {
+        None
     }
 }
