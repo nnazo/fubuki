@@ -1,10 +1,10 @@
 use super::models::{Media, MediaList, MediaListCollection, MediaType, User};
-use crate::settings;
+use crate::{settings, resources::Resources};
 use anyhow::{anyhow, Result};
 use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Map, Value};
-use std::path::Path;
+// use std::path::Path;
 use tokio::time;
 
 #[derive(Deserialize, Debug)]
@@ -105,16 +105,21 @@ where
     Err(anyhow!("Exceeded the maximum rate limit count (5)"))
 }
 
-pub async fn query_from_file<R, P>(
-    path: P,
+pub async fn query_from_file<R>(
+    path: &str,
     variables: &Option<Map<String, Value>>,
     token: Option<String>,
 ) -> Result<QueryResponse<R>>
 where
     R: DeserializeOwned,
-    P: AsRef<Path>,
 {
-    let query = std::fs::read_to_string(path)?;
+    let query: String = Resources::get(path).map_or_else(
+        || Err(anyhow!("could not load query from \"{}\"", path)),
+        |query| std::str::from_utf8(&*query).map_or_else(
+            |err| Err(anyhow!("failed to covert \"{}\" query to utf8: {}", path, err)), 
+            |s| Ok(s.to_string()),
+        ),
+    )?;
     query_graphql(&query, variables, token).await
 }
 
@@ -128,7 +133,7 @@ pub async fn query_media_list(
         "type": media_type,
     });
     if let serde_json::Value::Object(variables) = variables {
-        query_from_file("./res/graphql/media_list.gql", &Some(variables), token).await
+        query_from_file("graphql/media_list.gql", &Some(variables), token).await
     } else {
         Err(anyhow!("media list query variables was not a json object"))
     }
@@ -148,7 +153,7 @@ pub async fn query_media_lists(
 }
 
 pub async fn query_user(token: Option<String>) -> Result<QueryResponse<ViewerResponse>> {
-    query_from_file("./res/graphql/user.gql", &None, token).await
+    query_from_file("graphql/user.gql", &None, token).await
 }
 
 pub async fn update_media(
@@ -164,7 +169,7 @@ pub async fn update_media(
         "completedAt": media.completed_at,
     });
     if let serde_json::Value::Object(variables) = variables {
-        query_from_file("./res/graphql/update_media.gql", &Some(variables), token).await
+        query_from_file("graphql/update_media.gql", &Some(variables), token).await
     } else {
         Err(anyhow!("update media variables was not a json object"))
     }
@@ -180,7 +185,7 @@ pub async fn query_search(
         "mediaType": media_type,
     });
     if let serde_json::Value::Object(variables) = variables {
-        query_from_file("./res/graphql/search.gql", &Some(variables), token).await
+        query_from_file("graphql/search.gql", &Some(variables), token).await
     } else {
         Err(anyhow!("update media variables was not a json object"))
     }
