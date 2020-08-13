@@ -3,7 +3,7 @@ use enum_dispatch::enum_dispatch;
 use iced::{
     executor, image, time, Application, Column, Command, Container, Element, Length, Subscription,
 };
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, warn};
 use recognition::MediaParser;
 use std::fmt::Debug;
 use ui::{components, style};
@@ -32,7 +32,7 @@ impl App {
                 NoMessage.into()
             }
             Err(err) => {
-                error!("user query failed: {}", err);
+                error!("anilist user query failed: {}", err);
                 NoMessage.into()
             }
         })
@@ -58,7 +58,7 @@ impl App {
                         None => None,
                     },
                     Err(err) => {
-                        error!("query err: {}", err);
+                        warn!("anime list query error: {}", err);
                         None
                     }
                 };
@@ -68,7 +68,7 @@ impl App {
                         None => None,
                     },
                     Err(err) => {
-                        error!("query err: {}", err);
+                        warn!("manga list query error: {}", err);
                         None
                     }
                 };
@@ -97,7 +97,7 @@ impl App {
                     None => NoMessage.into(),
                 },
                 Err(err) => {
-                    error!("search err: {}", err);
+                    warn!("anilist media search error: {}", err);
                     NoMessage.into()
                 }
             },
@@ -123,7 +123,7 @@ impl Application for App {
         };
         let command = match settings::get_settings().write().unwrap().anilist.token() {
             Some(token) => {
-                info!("token loaded from settings");
+                info!("user token successfully loaded from settings");
                 Self::query_user(token.clone())
             }
             None => Command::none(),
@@ -174,7 +174,7 @@ impl Application for App {
                     anilist::update_media(token, media_update),
                     |result| match result {
                         Ok(resp) => {
-                            trace!("media update succeeded: {:#?}", resp);
+                            info!("media update succeeded: {:#?}", resp);
                             MediaUpdateComplete.into()
                         }
                         Err(err) => {
@@ -295,10 +295,10 @@ impl Event for DetectMediaResult {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let DetectMediaResult(media) = self;
         if let Some(detected_media) = media {
-            debug!("detected media {:#?}", detected_media);
             match &app.recognized {
                 Some(media) => {
                     if *media != detected_media {
+                        debug!("detected media {:#?}", detected_media);
                         app.recognized = Some(detected_media.clone());
                         return Some(forward_message(SearchMedia(detected_media, false).into()));
                     } else {
@@ -306,6 +306,7 @@ impl Event for DetectMediaResult {
                     }
                 }
                 None => {
+                    debug!("detected media {:#?}", detected_media);
                     app.recognized = Some(detected_media.clone());
                     return Some(forward_message(SearchMedia(detected_media, false).into()));
                 }
@@ -482,22 +483,22 @@ impl Event for SearchResults {
                     if let Some(recognized_progress) = recognized.progress {
                         if progress > 0 && progress < recognized_progress as i32 {
                             debug!(
-                                "offset progress to {} instead of {}",
-                                progress, recognized_progress
+                                "offset progress of media {} to {} instead of {}",
+                                media.media_id, progress, recognized_progress
                             );
                             recognized.progress = Some(progress as f64);
                         } else {
                             recognized.progress = None;
                             warn!(
-                                "something went wrong with detected progress, {} became {}",
-                                recognized_progress, progress
+                                "detected progress offset error for media {}, {} became {}",
+                                media.media_id, recognized_progress, progress
                             );
                         }
                     } else {
-                        warn!("no recognized progress");
+                        warn!("no recognized progress from {:#?}", recognized);
                     }
                 } else {
-                    warn!("progress offset was None");
+                    debug!("progress offset was None for media id {}", media.media_id);
                 }
 
                 // Clone the media so we only mutate the entry in the user's list
@@ -510,7 +511,7 @@ impl Event for SearchResults {
                 ))
             }
             None => {
-                info!("could not find media in list");
+                debug!("could not find media in list");
                 Some(forward_message(MediaNotFound.into()))
             }
         }
@@ -547,8 +548,8 @@ pub struct UserFound(anilist::User);
 impl Event for UserFound {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let UserFound(user) = self;
+        info!("retrieved user: {}", user.id);
         app.user = Some(user);
-        debug!("got user {:#?}", app.user);
 
         app.page.settings.logged_in = true;
         Some(Command::perform(
@@ -556,7 +557,7 @@ impl Event for UserFound {
             |result| match result {
                 Ok(handle) => AvatarRetrieved(handle).into(),
                 Err(err) => {
-                    warn!("failed to get avatar {}", err);
+                    warn!("failed to get avatar: {}", err);
                     NoMessage.into()
                 }
             },
@@ -570,7 +571,7 @@ pub struct AvatarRetrieved(image::Handle);
 impl Event for AvatarRetrieved {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let AvatarRetrieved(handle) = self;
-        debug!("got avatar");
+        info!("retrieved avatar");
         app.nav.set_avatar(Some(handle));
 
         let settings = settings::get_settings().read().unwrap();
@@ -589,13 +590,12 @@ impl Event for ListRetrieved {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         app.page.anime.set_list(self.anime_list);
         app.page.manga.set_list(self.manga_list);
-        debug!("got the list response");
-        debug!(
-            "  anime list is some? {}",
+        info!(
+            "anime list was retrieved? {}",
             app.page.anime.get_list().is_some()
         );
-        debug!(
-            "  manga list is some? {}",
+        info!(
+            "manga list was retrieved? {}",
             app.page.manga.get_list().is_some()
         );
         None
