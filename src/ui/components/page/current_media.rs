@@ -8,6 +8,7 @@ use crate::{
 use iced::{
     button, image, Button, Column, Command, Element, HorizontalAlignment, Length, Row, Text,
 };
+use log::{debug, warn};
 
 #[derive(Debug, Clone)]
 pub struct CurrentMediaPage {
@@ -124,10 +125,10 @@ impl Default for CurrentMediaPage {
 pub struct CoverChange(pub Option<image::Handle>);
 
 impl Event for CoverChange {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let CoverChange(cover) = self;
         app.page.current_media.set_media_cover(cover);
-        Command::none()
+        None
     }
 }
 
@@ -139,9 +140,13 @@ pub struct MediaChange(
 );
 
 impl Event for MediaChange {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let MediaChange(media_list, recognized, needs_update) = self;
-        println!("setting cancel button {}", needs_update);
+        if needs_update {
+            debug!("showing list update cancel button");
+        } else {
+            debug!("hiding list update cancel button");
+        }
         app.page.current_media.show_cancel_button(needs_update);
         if media_list.is_none() {
             app.page.current_media.set_media_cover(None);
@@ -149,7 +154,7 @@ impl Event for MediaChange {
         app.page
             .current_media
             .set_current_media(media_list, recognized);
-        Command::none()
+        None
     }
 }
 
@@ -157,19 +162,19 @@ impl Event for MediaChange {
 pub struct CancelListUpdate(pub i32, pub bool);
 
 impl Event for CancelListUpdate {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let CancelListUpdate(media_id, already_sent) = self;
         app.page.current_media.show_cancel_button(false);
         if !already_sent {
             let index = app.updates.find_index(media_id);
             match index {
                 Some(index) => match app.updates.remove(index) {
-                    Some(_) => println!("successfully removed media_id {} from queue", media_id),
-                    None => println!("removal returned None for media_id {} in queue", media_id),
+                    Some(_) => debug!("successfully removed media_id {} from queue", media_id),
+                    None => warn!("removal returned None for media_id {} in queue", media_id),
                 },
-                None => eprintln!("could not find media_id {} in list update queue", media_id),
+                None => warn!("could not find media_id {} in list update queue", media_id),
             }
         }
-        Command::none()
+        None
     }
 }

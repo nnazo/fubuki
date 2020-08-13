@@ -1,5 +1,7 @@
+use super::file_path;
 use super::{AniListData, RecognitionData};
 use anyhow::Result;
+use log::warn;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -9,12 +11,10 @@ use std::{
     sync::RwLock,
 };
 
-use super::file_path;
-
 pub static SETTINGS: Lazy<RwLock<Settings>> = Lazy::new(|| match Settings::load() {
     Ok(settings) => RwLock::new(settings),
     Err(err) => {
-        eprintln!("settings load err: {}", err);
+        warn!("settings load err: {}", err);
         RwLock::new(Settings::default())
     }
 });
@@ -38,7 +38,7 @@ impl Settings {
                 Ok(serde_json::from_reader(rdr)?)
             }
             Err(err) => {
-                println!("could not open {:?}: {}", path, err);
+                warn!("could not open settings file {:?}: {}", path, err);
                 let default = Self::default();
                 default.save()?;
                 Ok(default)

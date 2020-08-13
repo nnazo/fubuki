@@ -7,6 +7,7 @@ use iced::{
     button, text_input, Button, Column, Command, Container, Element, HorizontalAlignment, Length,
     Text, TextInput, VerticalAlignment,
 };
+use log::warn;
 
 #[derive(Debug, Clone, Default)]
 pub struct SettingsPage {
@@ -128,15 +129,10 @@ impl SettingsPage {
 pub struct RefreshLists;
 
 impl Event for RefreshLists {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let settings = crate::settings::SETTINGS.read().unwrap();
-        let token = settings.anilist.token().clone();
-        if let Some(token) = token {
-            if let Some(user) = &app.user {
-                return App::query_user_lists(token, user.id);
-            }
-        }
-        Command::none()
+        let token = settings.anilist.token().clone()?;
+        Some(App::query_user_lists(token, app.user.as_ref()?.id))
     }
 }
 
@@ -144,12 +140,12 @@ impl Event for RefreshLists {
 pub struct Logout;
 
 impl Event for Logout {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let mut settings = crate::settings::SETTINGS.write().unwrap();
         match settings.anilist.forget_token() {
             Ok(_) => {}
             Err(err) => {
-                eprintln!("could not forget token: {}", err);
+                warn!("could not forget token: {}", err);
             }
         };
         app.user = None;
@@ -157,7 +153,7 @@ impl Event for Logout {
         app.page.manga.set_list(None);
         app.nav.set_avatar(None);
         app.page.settings.logged_in = false;
-        Command::none()
+        None
     }
 }
 
@@ -165,12 +161,12 @@ impl Event for Logout {
 pub struct Login;
 
 impl Event for Login {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         app.page.settings.logged_in = true;
         if app.user.is_some() {
-            Command::none()
+            None
         } else {
-            App::auth()
+            Some(App::auth())
         }
     }
 }
@@ -181,7 +177,7 @@ pub enum SettingChange {
 }
 
 impl Event for SettingChange {
-    fn handle(self, _app: &mut App) -> Command<Message> {
+    fn handle(self, _app: &mut App) -> Option<Command<Message>> {
         let mut settings = crate::settings::get_settings().write().unwrap();
         let mut changed = false;
         match self {
@@ -190,14 +186,14 @@ impl Event for SettingChange {
                     settings.update_delay = delay;
                     changed = save;
                 }
-                Err(err) => eprintln!("could not parse new update delay {}", err),
+                Err(err) => warn!("could not parse new update delay: {}", err),
             },
         }
         if changed {
             if let Err(err) = settings.save() {
-                eprintln!("error saving settings: {}", err);
+                warn!("error saving settings: {}", err);
             }
         }
-        Command::none()
+        None
     }
 }

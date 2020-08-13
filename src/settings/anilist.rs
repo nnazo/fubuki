@@ -1,5 +1,6 @@
 use super::file_path;
 use anyhow::Result;
+use log::warn;
 use serde::{Deserialize, Serialize};
 use std::{
     default::Default,
@@ -23,7 +24,7 @@ impl AniListData {
                 Ok(serde_json::from_reader(rdr)?)
             }
             Err(err) => {
-                println!("could not open {:?}: {}", path, err);
+                warn!("could not open {:?}: {}", path, err);
                 let default = Self::default();
                 default.save()?;
                 Ok(default)

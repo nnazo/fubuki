@@ -399,13 +399,13 @@ pub struct ListGroupSelected {
 }
 
 impl Event for ListGroupSelected {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let list_page = match self.media_type {
             anilist::MediaType::Anime => &mut app.page.anime,
             anilist::MediaType::Manga => &mut app.page.manga,
         };
         list_page.change_list_group(self.index);
-        Command::none()
+        None
     }
 }
 
@@ -417,57 +417,52 @@ pub struct IncrementMediaProgress {
 }
 
 impl Event for IncrementMediaProgress {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let list = match self.media_type {
             anilist::MediaType::Anime => app.page.anime.get_list_mut(),
             anilist::MediaType::Manga => app.page.manga.get_list_mut(),
         };
 
-        let entry = match list {
-            Some(list) => list.find_entry_by_id_mut(self.media_id),
-            None => None,
-        };
+        let entry = list?.find_entry_by_id_mut(self.media_id)?;
 
-        if let Some(entry) = entry {
-            let (progress, cap) = match self.is_volume_progress {
-                true => (
-                    &mut entry.progress_volumes,
-                    match &entry.media {
-                        Some(media) => media.volumes,
+        let (progress, cap) = match self.is_volume_progress {
+            true => (
+                &mut entry.progress_volumes,
+                match &entry.media {
+                    Some(media) => media.volumes,
+                    None => None,
+                },
+            ),
+            false => (
+                &mut entry.progress,
+                match self.media_type {
+                    anilist::MediaType::Anime => match &entry.media {
+                        Some(media) => media.episodes,
                         None => None,
                     },
-                ),
-                false => (
-                    &mut entry.progress,
-                    match self.media_type {
-                        anilist::MediaType::Anime => match &entry.media {
-                            Some(media) => media.episodes,
-                            None => None,
-                        },
-                        anilist::MediaType::Manga => match &entry.media {
-                            Some(media) => media.chapters,
-                            None => None,
-                        },
+                    anilist::MediaType::Manga => match &entry.media {
+                        Some(media) => media.chapters,
+                        None => None,
                     },
-                ),
-            };
-            if let Some(progress) = progress {
-                match cap {
-                    Some(cap) => {
-                        if *progress < cap {
-                            *progress += 1;
-                            app.updates.enqueue(entry.clone());
-                        }
-                    }
-                    None => {
-                        *progress += 1;
-                        app.updates.enqueue(entry.clone());
-                    }
+                },
+            ),
+        };
+
+        let progress = progress.as_mut()?;
+        match cap {
+            Some(cap) => {
+                if *progress < cap {
+                    *progress += 1;
+                    app.updates.enqueue(entry.clone());
                 }
+            }
+            None => {
+                *progress += 1;
+                app.updates.enqueue(entry.clone());
             }
         }
 
-        Command::none()
+        None
     }
 }
 
@@ -478,11 +473,11 @@ pub struct ListFilterTextChange {
 }
 
 impl Event for ListFilterTextChange {
-    fn handle(self, app: &mut App) -> Command<Message> {
+    fn handle(self, app: &mut App) -> Option<Command<Message>> {
         match self.media_type {
             anilist::MediaType::Anime => app.page.anime.set_filter(self.value),
             anilist::MediaType::Manga => app.page.manga.set_filter(self.value),
         }
-        Command::none()
+        None
     }
 }

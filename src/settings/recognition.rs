@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::warn;
 use serde::{Deserialize, Serialize};
 use std::{default::Default, fs::File, io::BufReader, path::Path};
 
@@ -21,7 +22,7 @@ impl<'a> RecognitionData {
                 Ok(r)
             }
             Err(err) => {
-                println!("could not open {}: {}", Self::PATH, err);
+                warn!("could not open recognition file {}: {}", Self::PATH, err);
                 let default = Self::default();
                 // default.save()?;
                 Ok(default)
@@ -42,12 +43,16 @@ impl<'a> RecognitionData {
                         r.manga = itertools::chain(r.manga, custom.manga).collect();
                     }
                     Err(err) => {
-                        println!("error deserializing custom recognition data: {}", err);
+                        warn!("error deserializing custom recognition data: {}", err);
                     }
                 }
             }
             Err(err) => {
-                println!("could not open custom {}: {}", Self::CUSTOM, err);
+                warn!(
+                    "could not open custom recognition file {}: {}",
+                    Self::CUSTOM,
+                    err
+                );
             }
         }
         Ok(r)
