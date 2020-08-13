@@ -32,7 +32,8 @@ fn initialize_logger() -> Result<()> {
         .encoder(Box::new(JsonEncoder::new()))
         .build(path)?;
 
-    let mut logger = Logger::builder().appender("app_dir");
+    let mut logger = Logger::builder();
+    logger = logger.appender("app_dir");
     
     // Remove logs from stdout in release mode
     #[cfg(not(debug_assertions))]
