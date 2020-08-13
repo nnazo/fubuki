@@ -17,15 +17,19 @@ use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Logger, Root};
-// use log4rs::encode::pattern::PatternEncoder;
 use log4rs::encode::json::JsonEncoder;
 
 fn initialize_logger() -> Result<()> {
     let stdout = ConsoleAppender::builder().build();
     let path = crate::settings::file_path("fubuki.log")?;
+    {
+        // Truncate the log file if it exists
+        match std::fs::OpenOptions::new().write(true).truncate(true).open(path.clone()) {
+            _ => {},
+        }
+    }
     let app_dir_appender = FileAppender::builder()
         .encoder(Box::new(JsonEncoder::new()))
-        // .encoder(Box::new(PatternEncoder::new("{d(%Y-%m-%d %H:%M:%S %Z)(utc)} - Thread: {T}, Module: {M} - Level: {l}, Line: {L} - {m}{n}")))
         .build(path)?;
 
     let config = Config::builder()
@@ -34,7 +38,7 @@ fn initialize_logger() -> Result<()> {
         .logger(
             Logger::builder()
                 .appender("app_dir")
-                .additive(false)
+                // .additive(false)
                 .build("fubuki", LevelFilter::Debug),
         )
         .build(Root::builder().appender("stdout").build(LevelFilter::Warn))?;

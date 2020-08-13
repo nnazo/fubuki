@@ -142,7 +142,11 @@ pub struct MediaChange(
 impl Event for MediaChange {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let MediaChange(media_list, recognized, needs_update) = self;
-        debug!("showing cancel button {}", needs_update);
+        if needs_update {
+            debug!("showing list update cancel button");
+        } else {
+            debug!("hiding list update cancel button");
+        }
         app.page.current_media.show_cancel_button(needs_update);
         if media_list.is_none() {
             app.page.current_media.set_media_cover(None);
