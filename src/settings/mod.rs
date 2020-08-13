@@ -16,12 +16,12 @@ pub fn get_settings() -> &'static Lazy<RwLock<settings::Settings>> {
     &SETTINGS
 }
 
-const FUBUKI: AppInfo = AppInfo {
+pub const FUBUKI: AppInfo = AppInfo {
     name: "Fubuki",
     author: "nnazo",
 };
 
-fn file_path(path: &str) -> Result<PathBuf> {
+pub fn file_path(path: &str) -> Result<PathBuf> {
     let mut p = app_root(AppDataType::UserData, &FUBUKI)?;
     p.push(path);
     Ok(p)

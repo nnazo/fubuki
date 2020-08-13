@@ -8,6 +8,7 @@ use crate::{
 use iced::{
     button, image, Button, Column, Command, Element, HorizontalAlignment, Length, Row, Text,
 };
+use log::{debug, warn};
 
 #[derive(Debug, Clone)]
 pub struct CurrentMediaPage {
@@ -141,7 +142,7 @@ pub struct MediaChange(
 impl Event for MediaChange {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let MediaChange(media_list, recognized, needs_update) = self;
-        println!("setting cancel button {}", needs_update);
+        debug!("showing cancel button {}", needs_update);
         app.page.current_media.show_cancel_button(needs_update);
         if media_list.is_none() {
             app.page.current_media.set_media_cover(None);
@@ -164,10 +165,10 @@ impl Event for CancelListUpdate {
             let index = app.updates.find_index(media_id);
             match index {
                 Some(index) => match app.updates.remove(index) {
-                    Some(_) => println!("successfully removed media_id {} from queue", media_id),
-                    None => println!("removal returned None for media_id {} in queue", media_id),
+                    Some(_) => debug!("successfully removed media_id {} from queue", media_id),
+                    None => warn!("removal returned None for media_id {} in queue", media_id),
                 },
-                None => eprintln!("could not find media_id {} in list update queue", media_id),
+                None => warn!("could not find media_id {} in list update queue", media_id),
             }
         }
         None

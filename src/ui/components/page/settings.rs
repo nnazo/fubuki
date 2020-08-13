@@ -7,6 +7,7 @@ use iced::{
     button, text_input, Button, Column, Command, Container, Element, HorizontalAlignment, Length,
     Text, TextInput, VerticalAlignment,
 };
+use log::warn;
 
 #[derive(Debug, Clone, Default)]
 pub struct SettingsPage {
@@ -144,7 +145,7 @@ impl Event for Logout {
         match settings.anilist.forget_token() {
             Ok(_) => {}
             Err(err) => {
-                eprintln!("could not forget token: {}", err);
+                warn!("could not forget token: {}", err);
             }
         };
         app.user = None;
@@ -185,12 +186,12 @@ impl Event for SettingChange {
                     settings.update_delay = delay;
                     changed = save;
                 }
-                Err(err) => eprintln!("could not parse new update delay {}", err),
+                Err(err) => warn!("could not parse new update delay: {}", err),
             },
         }
         if changed {
             if let Err(err) = settings.save() {
-                eprintln!("error saving settings: {}", err);
+                warn!("error saving settings: {}", err);
             }
         }
         None

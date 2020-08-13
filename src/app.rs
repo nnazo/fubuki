@@ -1,17 +1,9 @@
 use crate::*;
 use enum_dispatch::enum_dispatch;
 use iced::{
-    executor,
-    image,
-    time,
-    Application,
-    Column, // Text, // HorizontalAlignment, VerticalAlignment,
-    Command,
-    Container,
-    Element,
-    Length,
-    Subscription,
+    executor, image, time, Application, Column, Command, Container, Element, Length, Subscription,
 };
+use log::{debug, error, info, trace, warn};
 use recognition::MediaParser;
 use std::fmt::Debug;
 use ui::{components, style};
@@ -25,8 +17,6 @@ pub struct App {
     pub nav: components::Nav,
     pub page: components::PageContainer,
     pub user: Option<anilist::User>,
-    // pub anime_list: Option<anilist::MediaListCollection>,
-    // pub manga_list: Option<anilist::MediaListCollection>,
     pub updates: anilist::ListUpdateQueue,
 }
 
@@ -42,7 +32,7 @@ impl App {
                 NoMessage.into()
             }
             Err(err) => {
-                eprintln!("user query failed: {}", err);
+                error!("user query failed: {}", err);
                 NoMessage.into()
             }
         })
@@ -52,7 +42,7 @@ impl App {
         Command::perform(anilist::auth(), |result| match result {
             Ok(token) => Authorized(token).into(),
             Err(err) => {
-                println!("authorization failed: {}", err);
+                error!("authorization failed: {}", err);
                 AuthFailed.into()
             }
         })
@@ -68,7 +58,7 @@ impl App {
                         None => None,
                     },
                     Err(err) => {
-                        eprintln!("query err: {}", err);
+                        error!("query err: {}", err);
                         None
                     }
                 };
@@ -78,7 +68,7 @@ impl App {
                         None => None,
                     },
                     Err(err) => {
-                        eprintln!("query err: {}", err);
+                        error!("query err: {}", err);
                         None
                     }
                 };
@@ -107,7 +97,7 @@ impl App {
                     None => NoMessage.into(),
                 },
                 Err(err) => {
-                    eprintln!("search err: {}", err);
+                    error!("search err: {}", err);
                     NoMessage.into()
                 }
             },
@@ -129,20 +119,14 @@ impl Application for App {
             nav: components::Nav::new(),
             page: components::PageContainer::default(),
             user: None,
-            // anime_list: None,
-            // manga_list: None,
             updates: anilist::ListUpdateQueue::default(),
         };
         let command = match settings::get_settings().write().unwrap().anilist.token() {
             Some(token) => {
-                println!("already authorized");
+                info!("token loaded from settings");
                 Self::query_user(token.clone())
             }
-            None =>
-            /*Self::auth()*/
-            {
-                Command::none()
-            }
+            None => Command::none(),
         };
         (app, command)
     }
@@ -190,11 +174,11 @@ impl Application for App {
                     anilist::update_media(token, media_update),
                     |result| match result {
                         Ok(resp) => {
-                            println!("media update succeeded: {:#?}", resp);
+                            trace!("media update succeeded: {:#?}", resp);
                             MediaUpdateComplete.into()
                         }
                         Err(err) => {
-                            println!("media update failed: {}", err);
+                            warn!("media update failed: {}", err);
                             MediaUpdateComplete.into()
                         }
                     },
@@ -311,7 +295,7 @@ impl Event for DetectMediaResult {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let DetectMediaResult(media) = self;
         if let Some(detected_media) = media {
-            println!("detected media {:#?}", detected_media);
+            debug!("detected media {:#?}", detected_media);
             match &app.recognized {
                 Some(media) => {
                     if *media != detected_media {
@@ -372,7 +356,7 @@ impl Event for MediaFound {
                         let handle = match result {
                             Ok(handle) => Some(handle),
                             Err(err) => {
-                                eprintln!("could not get cover {}", err);
+                                warn!("could not get cover: {}", err);
                                 None
                             }
                         };
@@ -388,7 +372,7 @@ impl Event for MediaFound {
         if needs_update {
             app.updates.enqueue(media);
         } else {
-            println!("update not needed");
+            debug!("update not needed for media id {}", media.media_id);
         }
         return Some(Command::batch(commands));
     }
@@ -497,23 +481,23 @@ impl Event for SearchResults {
                 if let Some(progress) = progress {
                     if let Some(recognized_progress) = recognized.progress {
                         if progress > 0 && progress < recognized_progress as i32 {
-                            println!(
+                            debug!(
                                 "offset progress to {} instead of {}",
                                 progress, recognized_progress
                             );
                             recognized.progress = Some(progress as f64);
                         } else {
                             recognized.progress = None;
-                            println!(
+                            warn!(
                                 "something went wrong with detected progress, {} became {}",
                                 recognized_progress, progress
                             );
                         }
                     } else {
-                        println!("no recognized progress");
+                        warn!("no recognized progress");
                     }
                 } else {
-                    println!("progress offset was None");
+                    warn!("progress offset was None");
                 }
 
                 // Clone the media so we only mutate the entry in the user's list
@@ -526,7 +510,7 @@ impl Event for SearchResults {
                 ))
             }
             None => {
-                println!("could not find media in list");
+                info!("could not find media in list");
                 Some(forward_message(MediaNotFound.into()))
             }
         }
@@ -542,7 +526,7 @@ impl Event for Authorized {
         let mut settings = settings::get_settings().write().unwrap();
         settings.anilist.save_token(token.as_str());
         if let Err(err) = settings.anilist.save() {
-            println!("couldn't save token: {}", err);
+            warn!("couldn't save token: {}", err);
         }
         Some(App::query_user(token))
     }
@@ -564,7 +548,7 @@ impl Event for UserFound {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let UserFound(user) = self;
         app.user = Some(user);
-        println!("got user {:#?}", app.user);
+        debug!("got user {:#?}", app.user);
 
         app.page.settings.logged_in = true;
         Some(Command::perform(
@@ -572,7 +556,7 @@ impl Event for UserFound {
             |result| match result {
                 Ok(handle) => AvatarRetrieved(handle).into(),
                 Err(err) => {
-                    eprintln!("failed to get avatar {}", err);
+                    warn!("failed to get avatar {}", err);
                     NoMessage.into()
                 }
             },
@@ -586,7 +570,7 @@ pub struct AvatarRetrieved(image::Handle);
 impl Event for AvatarRetrieved {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         let AvatarRetrieved(handle) = self;
-        println!("got avatar");
+        debug!("got avatar");
         app.nav.set_avatar(Some(handle));
 
         let settings = settings::get_settings().read().unwrap();
@@ -605,12 +589,12 @@ impl Event for ListRetrieved {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         app.page.anime.set_list(self.anime_list);
         app.page.manga.set_list(self.manga_list);
-        println!("got the list response");
-        println!(
+        debug!("got the list response");
+        debug!(
             "  anime list is some? {}",
             app.page.anime.get_list().is_some()
         );
-        println!(
+        debug!(
             "  manga list is some? {}",
             app.page.manga.get_list().is_some()
         );

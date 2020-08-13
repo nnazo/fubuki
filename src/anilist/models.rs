@@ -1,4 +1,5 @@
 use chrono::{offset::Local, NaiveDate};
+use log::{debug, warn};
 use serde::{self, Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -304,7 +305,7 @@ impl MediaListCollection {
             for title in media.all_titles() {
                 let license = media.is_licensed.unwrap_or(false);
                 let sim = strsim::normalized_levenshtein(title, search);
-                // println!("    similarity of {} between {} and {}", sim, search, title);
+                // debug!("    similarity of {} between {} and {}", sim, search, title);
                 if sim >= 0.85 {
                     if sim > best_sim {
                         best_id = Some(media.id);
@@ -393,7 +394,7 @@ impl MediaListCollection {
                     } else {
                         strsim::normalized_levenshtein(title, search)
                     };
-                    println!("    similarity of {} between {} and {}", sim, search, title);
+                    debug!("    similarity of {} between {} and {}", sim, search, title);
                     if sim >= 0.85 {
                         return (Some(entry), sim);
                     }
@@ -739,7 +740,7 @@ impl FuzzyDate {
         match date.format(fmt).to_string().parse::<i32>() {
             Ok(x) => Some(x),
             Err(err) => {
-                println!("date int parse error: {}", err);
+                warn!("date int parse error: {}", err);
                 None
             }
         }

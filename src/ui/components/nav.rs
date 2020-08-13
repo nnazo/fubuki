@@ -1,7 +1,5 @@
-use crate::ui::style;
-// use crate::ui::style;
-// use crate::ui::components::*;
 use crate::app::{App, Event, Message};
+use crate::ui::style;
 use iced::{
     button, image, widget::Container, Button, Command, Element, HorizontalAlignment, Length, Row,
     Text,
@@ -15,7 +13,6 @@ pub struct CurrentMediaPress {
 impl Event for CurrentMediaPress {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         if !self.selected {
-            println!("pressed media");
             app.nav.settings_selected = false;
             app.nav.anime_selected = false;
             app.nav.manga_selected = false;
@@ -34,7 +31,6 @@ pub struct SettingsPress {
 impl Event for SettingsPress {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         if !self.selected {
-            println!("pressed settings");
             app.nav.settings_selected = true;
             app.nav.anime_selected = false;
             app.nav.manga_selected = false;
@@ -53,7 +49,6 @@ pub struct AnimeListPress {
 impl Event for AnimeListPress {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         if !self.selected {
-            println!("pressed anime list");
             app.nav.settings_selected = false;
             app.nav.anime_selected = true;
             app.nav.manga_selected = false;
@@ -72,7 +67,6 @@ pub struct MangaListPress {
 impl Event for MangaListPress {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
         if !self.selected {
-            println!("pressed manga list");
             app.nav.settings_selected = false;
             app.nav.anime_selected = false;
             app.nav.manga_selected = true;

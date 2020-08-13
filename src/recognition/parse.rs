@@ -1,6 +1,7 @@
 use super::get_window_titles;
 use crate::settings;
 use anyhow::Result;
+use log::warn;
 use once_cell::sync::Lazy;
 use regex::{Captures, Regex, RegexSet};
 use std::collections::HashMap;
@@ -72,7 +73,7 @@ impl MediaParser {
                     Some(p) => match p.as_str().parse::<f64>() {
                         Ok(ep) => Some(ep),
                         Err(err) => {
-                            eprintln!("could not parse episode {}", err);
+                            warn!("could not parse episode: {}", err);
                             None
                         }
                     },
@@ -90,7 +91,7 @@ impl MediaParser {
                     Some(p) => match p.as_str().parse::<f64>() {
                         Ok(ep) => Some(ep),
                         Err(err) => {
-                            eprintln!("could not parse chapter {}", err);
+                            warn!("could not parse chapter: {}", err);
                             None
                         }
                     },
@@ -100,7 +101,7 @@ impl MediaParser {
                     Some(p) => match p.as_str().parse::<f64>() {
                         Ok(ep) => Some(ep),
                         Err(err) => {
-                            eprintln!("could not parse volume {}", err);
+                            warn!("could not parse volume: {}", err);
                             None
                         }
                     },

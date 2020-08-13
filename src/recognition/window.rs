@@ -1,12 +1,11 @@
 #[cfg(windows)]
 pub fn get_window_titles() -> Vec<String> {
-    use std::{
-        ffi::OsString, os::windows::prelude::*, sync::Mutex,
-    };
-    use winapi::{
-        shared::{minwindef, windef}, um::winuser,
-    };
     use once_cell::sync::Lazy;
+    use std::{ffi::OsString, os::windows::prelude::*, sync::Mutex};
+    use winapi::{
+        shared::{minwindef, windef},
+        um::winuser,
+    };
     static TITLES: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(vec![]));
     extern "system" fn callback(hwnd: windef::HWND, _lparam: minwindef::LPARAM) -> i32 {
         if hwnd == std::ptr::null_mut() {
@@ -29,7 +28,9 @@ pub fn get_window_titles() -> Vec<String> {
         }
     }
     TITLES.lock().unwrap().clear();
-    unsafe { winuser::EnumWindows(Some(callback), 0); }
+    unsafe {
+        winuser::EnumWindows(Some(callback), 0);
+    }
     TITLES.lock().unwrap().to_vec()
 }
 
