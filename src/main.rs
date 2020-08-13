@@ -32,14 +32,19 @@ fn initialize_logger() -> Result<()> {
         .encoder(Box::new(JsonEncoder::new()))
         .build(path)?;
 
+    let mut logger = Logger::builder().appender("app_dir");
+    
+    // Remove logs from stdout in release mode
+    #[cfg(not(debug_assertions))]
+    {
+        logger = logger.additive(false);
+    }
+
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
         .appender(Appender::builder().build("app_dir", Box::new(app_dir_appender)))
         .logger(
-            Logger::builder()
-                .appender("app_dir")
-                // .additive(false)
-                .build("fubuki", LevelFilter::Debug),
+            logger.build("fubuki", LevelFilter::Debug),
         )
         .build(Root::builder().appender("stdout").build(LevelFilter::Warn))?;
 
