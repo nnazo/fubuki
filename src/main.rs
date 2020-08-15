@@ -6,8 +6,10 @@ pub mod app;
 pub mod recognition;
 pub mod settings;
 pub mod ui;
+pub mod resources;
 
 use anyhow::Result;
+use settings::file_path;
 use app::App;
 use iced::{Application, Settings};
 
@@ -21,7 +23,7 @@ use log4rs::encode::json::JsonEncoder;
 
 fn initialize_logger() -> Result<()> {
     let stdout = ConsoleAppender::builder().build();
-    let path = crate::settings::file_path("fubuki.log")?;
+    let path = file_path("fubuki.log")?;
     {
         // Truncate the log file if it exists
         match std::fs::OpenOptions::new().write(true).truncate(true).open(path.clone()) {
@@ -32,7 +34,8 @@ fn initialize_logger() -> Result<()> {
         .encoder(Box::new(JsonEncoder::new()))
         .build(path)?;
 
-    let mut logger = Logger::builder().appender("app_dir");
+    let mut logger = Logger::builder();
+    logger = logger.appender("app_dir");
     
     // Remove logs from stdout in release mode
     #[cfg(not(debug_assertions))]

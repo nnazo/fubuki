@@ -1,7 +1,9 @@
 use anyhow::Result;
 use log::warn;
 use serde::{Deserialize, Serialize};
-use std::{default::Default, fs::File, io::BufReader, path::Path};
+use std::{default::Default, fs::File, io::BufReader};
+use crate::resources::Resources;
+use super::file_path;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct RecognitionData {
@@ -10,29 +12,27 @@ pub struct RecognitionData {
 }
 
 impl<'a> RecognitionData {
-    const PATH: &'static str = "./res/recognition.json";
-    const CUSTOM: &'static str = "./res/recognition_custom.json";
+    const CUSTOM_RECOGNITION: &'static str = "recognition_custom.json";
 
     pub fn load() -> Result<Self> {
-        let path = Path::new(Self::PATH);
-        match File::open(&path) {
-            Ok(file) => {
-                let rdr = BufReader::new(file);
+        match Resources::get("recognition.json") {
+            Some(file) => {
+                let rdr = BufReader::new(&*file);
                 let r: RecognitionData = serde_json::from_reader(rdr)?;
                 Ok(r)
-            }
-            Err(err) => {
-                warn!("could not open recognition file {}: {}", Self::PATH, err);
+            },
+            None => {
+                warn!("could not open default recognition file");
                 let default = Self::default();
                 // default.save()?;
                 Ok(default)
-            }
+            },
         }
     }
 
     pub fn load_with_custom() -> Result<Self> {
         let mut r = Self::load()?;
-        let path = Path::new(Self::CUSTOM);
+        let path = file_path(Self::CUSTOM_RECOGNITION)?;
         match File::open(&path) {
             Ok(file) => {
                 let rdr = BufReader::new(file);
@@ -49,8 +49,8 @@ impl<'a> RecognitionData {
             }
             Err(err) => {
                 warn!(
-                    "could not open custom recognition file {}: {}",
-                    Self::CUSTOM,
+                    "could not open custom recognition file {:?}: {}",
+                    path,
                     err
                 );
             }

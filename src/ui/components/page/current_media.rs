@@ -4,6 +4,7 @@ use crate::{
     app::{App, Event, Message},
     recognition,
     ui::style,
+    resources::Resources,
 };
 use iced::{
     button, image, Button, Column, Command, Element, HorizontalAlignment, Length, Row, Text,
@@ -110,13 +111,14 @@ impl CurrentMediaPage {
 
 impl Default for CurrentMediaPage {
     fn default() -> Self {
+        let image = Resources::get("cover_default.jpg").expect("failed to load default media cover");
         CurrentMediaPage {
             update_cancel_btn_state: button::State::default(),
             show_cancel_update: false,
             current: None,
             recognized: None,
             cover: None,
-            default_cover: image::Handle::from("./res/cover_default.jpg"),
+            default_cover: image::Handle::from_memory(Vec::from(&*image)),
         }
     }
 }
