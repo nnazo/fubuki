@@ -528,8 +528,10 @@ impl Event for Authorized {
         settings.anilist.save_token(token.as_str());
         if let Err(err) = settings.anilist.save() {
             warn!("couldn't save token: {}", err);
+            Some(forward_message(AuthFailed.into()))
+        } else {
+            Some(App::query_user(token))
         }
-        Some(App::query_user(token))
     }
 }
 
@@ -538,7 +540,7 @@ pub struct AuthFailed;
 
 impl Event for AuthFailed {
     fn handle(self, _app: &mut App) -> Option<Command<Message>> {
-        None
+        Some(forward_message(Logout.into()))
     }
 }
 
