@@ -69,7 +69,7 @@ pub async fn auth() -> Result<String> {
         json.insert("code", &code);
         let client = reqwest::Client::new();
         let res = client
-            .post("http://localhost:8081/oauth/token")
+            .post("https://auth.fubuki.dev/oauth/token")
             .header("Accept", "application/json")
             .json(&json)
             .send()

@@ -3,8 +3,8 @@ use crate::{
     anilist,
     app::{App, Event, Message},
     recognition,
-    ui::style,
     resources::Resources,
+    ui::style,
 };
 use iced::{
     button, image, Button, Column, Command, Element, HorizontalAlignment, Length, Row, Text,
@@ -111,7 +111,8 @@ impl CurrentMediaPage {
 
 impl Default for CurrentMediaPage {
     fn default() -> Self {
-        let image = Resources::get("cover_default.jpg").expect("failed to load default media cover");
+        let image =
+            Resources::get("cover_default.jpg").expect("failed to load default media cover");
         CurrentMediaPage {
             update_cancel_btn_state: button::State::default(),
             show_cancel_update: false,

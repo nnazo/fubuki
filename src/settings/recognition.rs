@@ -1,9 +1,9 @@
+use super::file_path;
+use crate::resources::Resources;
 use anyhow::Result;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use std::{default::Default, fs::File, io::BufReader};
-use crate::resources::Resources;
-use super::file_path;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct RecognitionData {
@@ -20,13 +20,13 @@ impl<'a> RecognitionData {
                 let rdr = BufReader::new(&*file);
                 let r: RecognitionData = serde_json::from_reader(rdr)?;
                 Ok(r)
-            },
+            }
             None => {
                 warn!("could not open default recognition file");
                 let default = Self::default();
                 // default.save()?;
                 Ok(default)
-            },
+            }
         }
     }
 
@@ -48,11 +48,7 @@ impl<'a> RecognitionData {
                 }
             }
             Err(err) => {
-                warn!(
-                    "could not open custom recognition file {:?}: {}",
-                    path,
-                    err
-                );
+                warn!("could not open custom recognition file {:?}: {}", path, err);
             }
         }
         Ok(r)

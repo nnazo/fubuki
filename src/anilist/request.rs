@@ -1,5 +1,5 @@
 use super::models::{Media, MediaList, MediaListCollection, MediaType, User};
-use crate::{settings, resources::Resources};
+use crate::{resources::Resources, settings};
 use anyhow::{anyhow, Result};
 use reqwest::{Client, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize};
@@ -115,10 +115,18 @@ where
 {
     let query: String = Resources::get(path).map_or_else(
         || Err(anyhow!("could not load query from \"{}\"", path)),
-        |query| std::str::from_utf8(&*query).map_or_else(
-            |err| Err(anyhow!("failed to covert \"{}\" query to utf8: {}", path, err)), 
-            |s| Ok(s.to_string()),
-        ),
+        |query| {
+            std::str::from_utf8(&*query).map_or_else(
+                |err| {
+                    Err(anyhow!(
+                        "failed to covert \"{}\" query to utf8: {}",
+                        path,
+                        err
+                    ))
+                },
+                |s| Ok(s.to_string()),
+            )
+        },
     )?;
     query_graphql(&query, variables, token).await
 }

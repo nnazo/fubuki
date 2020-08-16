@@ -4,14 +4,14 @@ extern crate winapi;
 pub mod anilist;
 pub mod app;
 pub mod recognition;
+pub mod resources;
 pub mod settings;
 pub mod ui;
-pub mod resources;
 
 use anyhow::Result;
-use settings::file_path;
 use app::App;
 use iced::{Application, Settings};
+use settings::file_path;
 
 //#![windows_subsystem = "windows"] // Tells windows compiler not to show console window
 
@@ -26,8 +26,12 @@ fn initialize_logger() -> Result<()> {
     let path = file_path("fubuki.log")?;
     {
         // Truncate the log file if it exists
-        match std::fs::OpenOptions::new().write(true).truncate(true).open(path.clone()) {
-            _ => {},
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(path.clone())
+        {
+            _ => {}
         }
     }
     let app_dir_appender = FileAppender::builder()
@@ -36,7 +40,7 @@ fn initialize_logger() -> Result<()> {
 
     let mut logger = Logger::builder();
     logger = logger.appender("app_dir");
-    
+
     // Remove logs from stdout in release mode
     #[cfg(not(debug_assertions))]
     {
@@ -46,9 +50,7 @@ fn initialize_logger() -> Result<()> {
     let config = Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
         .appender(Appender::builder().build("app_dir", Box::new(app_dir_appender)))
-        .logger(
-            logger.build("fubuki", LevelFilter::Debug),
-        )
+        .logger(logger.build("fubuki", LevelFilter::Debug))
         .build(Root::builder().appender("stdout").build(LevelFilter::Warn))?;
 
     log4rs::init_config(config)?;
