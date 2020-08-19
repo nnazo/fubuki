@@ -1,19 +1,37 @@
-use crate::*;
+use crate::{resources::Resources, *};
 use enum_dispatch::enum_dispatch;
 use iced::{
-    executor, image, time, Application, Column, Command, Container, Element, Length, Subscription,
+    Settings, executor, time, Application, Column, Command, Container, Element, Length, Subscription, window::Icon,
 };
 use log::{debug, error, info, warn};
 use recognition::MediaParser;
 use std::fmt::Debug;
 use ui::{components, style};
+use anyhow::{Result, anyhow};
+
+pub fn set_icon<T>(settings: &mut Settings<T>) -> Result<()> {
+    match Resources::get("icon/icon.png") {
+        Some(file) => {
+            let image = image::load_from_memory(&*file)?;
+            let rgba = image.to_rgba();
+            let icon = Icon::from_rgba(rgba.to_vec(), rgba.width(), rgba.height())?;
+            settings.window.icon = Some(icon);
+            Ok(())
+        }
+        None => Err(anyhow!("could not get embedded res/icon/icon.png")),
+    }
+}
+
+pub fn set_min_dimensions<T>(settings: &mut Settings<T>) {
+    settings.window.min_size = Some((640, 480));
+}
 
 #[derive(Default)]
 pub struct App {
     pub waiting_for_cover: bool,
     pub recognized: Option<recognition::Media>,
     pub media: Option<anilist::MediaList>,
-    pub media_cover: Option<image::Handle>,
+    pub media_cover: Option<iced::image::Handle>,
     pub nav: components::Nav,
     pub page: components::PageContainer,
     pub user: Option<anilist::User>,
@@ -568,7 +586,7 @@ impl Event for UserFound {
 }
 
 #[derive(Debug, Clone)]
-pub struct AvatarRetrieved(image::Handle);
+pub struct AvatarRetrieved(iced::image::Handle);
 
 impl Event for AvatarRetrieved {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {
@@ -605,7 +623,7 @@ impl Event for ListRetrieved {
 }
 
 #[derive(Debug, Clone)]
-pub struct CoverRetrieved(Option<image::Handle>);
+pub struct CoverRetrieved(Option<iced::image::Handle>);
 
 impl Event for CoverRetrieved {
     fn handle(self, app: &mut App) -> Option<Command<Message>> {

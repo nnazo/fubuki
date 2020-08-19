@@ -15,7 +15,7 @@ use settings::file_path;
 
 //#![windows_subsystem = "windows"] // Tells windows compiler not to show console window
 
-use log::LevelFilter;
+use log::{LevelFilter, warn};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Logger, Root};
@@ -60,6 +60,11 @@ fn initialize_logger() -> Result<()> {
 
 fn main() -> Result<()> {
     initialize_logger()?;
-    App::run(Settings::default());
+    let mut settings = Settings::default();
+    if let Err(err) = app::set_icon(&mut settings) {
+        warn!("could not load application icon: {}", err);
+    };
+    app::set_min_dimensions(&mut settings);
+    App::run(settings);
     Ok(())
 }
