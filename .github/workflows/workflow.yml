@@ -1,0 +1,64 @@
+name: Main workflow
+on:
+  push:
+    paths-ignore:
+      - "res/**"
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - "res/**"
+      - "**.md"
+
+jobs:
+  # Run `rustfmt` to check code formatting
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      
+      - name: Rust Toolchain
+        uses: actions-rs/toochain@v1
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+          components: rustfmt
+      
+      - name: Install Dependencies
+        run: sudo apt-get install wmctrl
+      
+      - name: Format
+        run: cargo fmt -- --check
+
+  # Check for compilation errors
+  cargo_check:
+    name: Cargo check
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Cache build files
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+      - name: Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+        
+      - name: Check
+        run: cargo check
