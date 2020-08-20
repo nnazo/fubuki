@@ -15,7 +15,7 @@ use settings::file_path;
 
 //#![windows_subsystem = "windows"] // Tells windows compiler not to show console window
 
-use log::{LevelFilter, warn};
+use log::{warn, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Logger, Root};

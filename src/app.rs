@@ -1,13 +1,14 @@
 use crate::{resources::Resources, *};
+use anyhow::{anyhow, Result};
 use enum_dispatch::enum_dispatch;
 use iced::{
-    Settings, executor, time, Application, Column, Command, Container, Element, Length, Subscription, window::Icon,
+    executor, time, window::Icon, Application, Column, Command, Container, Element, Length,
+    Settings, Subscription,
 };
 use log::{debug, error, info, warn};
 use recognition::MediaParser;
 use std::fmt::Debug;
 use ui::{components, style};
-use anyhow::{Result, anyhow};
 
 pub fn set_icon<T>(settings: &mut Settings<T>) -> Result<()> {
     match Resources::get("icon/icon.png") {
