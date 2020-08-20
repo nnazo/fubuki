@@ -1,0 +1,101 @@
+name: Deploy
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  github_build:
+    name: Build release binaries
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - x86_64-unknown-apple-darwin
+          - x86_64-pc-windows-msvc
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: fubuki-x86_64-unknown-linux-gnu.tar.gz
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            name: fubuki-x86_64-unknown-linux-musl.tar.gz
+          - target: x86_64-unknown-linux-gnu
+            os: macOS-latest
+            name: fubuki-x86_64-apple-darwin.tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: fubuki-x86_64-pc-windows-msvc.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+    
+      # Cache build files
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        
+      - name: Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+          target: ${{ matrix.target }}
+      
+      - name: Install Musl Tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt install -y musl-tools
+      
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+    
+      - name: Prepare artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          strip fubuki.exe
+          7z a ../../../${{ matrix.name }} fubuki.exe
+          cd -
+    
+      - name: Prepare artifacts
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          strip fubuki
+          tar czvf ../../../${{ matrix.name }} fubuki
+          cd -
+    
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}
+
+  # Creates a new release for the new version
+  github_release:
+    name: Create GitHub Release
+    needs: github_build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+          files: fubuki-*/fubuki-*
+          # body-path: changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
