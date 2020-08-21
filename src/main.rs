@@ -1,6 +1,10 @@
 #[cfg(windows)]
 extern crate winapi;
 
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate serde;
+
 pub mod anilist;
 pub mod app;
 pub mod recognition;
