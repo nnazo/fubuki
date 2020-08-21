@@ -5,6 +5,23 @@ on:
       - "v*"
 
 jobs:
+  cargo_publish:
+    name: Publish Cargo Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+
   github_build:
     name: Build release binaries
     strategy:
@@ -43,7 +60,7 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         
-      - name: Rust Toolchain
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -88,14 +105,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Install Go (git-chglog)
+        run: actions/setup-go@v2
+        with:
+          go-version: "^1.15"
       
       - name: Download artifacts
         uses: actions/download-artifact@v2
+
+      - name: Generate release notes
+        run: |
+          go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
+          git-chglog -c .github/chglog/config.yml $(git describe --tags) > RELEASE.md
 
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
           files: fubuki-*/fubuki-*
-          # body-path: changelog
+          body-path: RELEASE.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
