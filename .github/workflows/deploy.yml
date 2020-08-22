@@ -79,6 +79,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           cd target/${{ matrix.target }}/release
+          curl https://github.com/electron/rcedit/releases/download/v1.1.1/rcedit-x64.exe -o rcedit.exe
+          rcedit.exe fubuki.exe --set-icon ../../../res/icon/fubuki.ico
           strip fubuki.exe
           7z a ../../../${{ matrix.name }} fubuki.exe
           cd -
