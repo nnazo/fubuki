@@ -11,7 +11,7 @@ use std::fmt::Debug;
 use ui::{components, style};
 
 pub fn set_icon<T>(settings: &mut Settings<T>) -> Result<()> {
-    match Resources::get("icon/icon.png") {
+    match Resources::get("icon/fubuki.png") {
         Some(file) => {
             let image = image::load_from_memory(&*file)?;
             let rgba = image.to_rgba();
@@ -19,7 +19,7 @@ pub fn set_icon<T>(settings: &mut Settings<T>) -> Result<()> {
             settings.window.icon = Some(icon);
             Ok(())
         }
-        None => Err(anyhow!("could not get embedded res/icon/icon.png")),
+        None => Err(anyhow!("could not get embedded res/icon/fubuki.png")),
     }
 }
 

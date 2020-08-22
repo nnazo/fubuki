@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=0.0.0
+Type=Application
+GenericName=Anime & Manga Tracker for AniList
+Name=Fubuki
+Icon=fubuki
+Exec=/usr/bin/fubuki
+Comment=A cross-platform anime and manga tracker for AniList 
+Categories=Internet;Entertainment;
+Terminal=false
+StartupWMClass=fubuki

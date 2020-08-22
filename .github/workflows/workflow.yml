@@ -26,9 +26,6 @@ jobs:
           profile: minimal
           components: rustfmt
       
-      - name: Install Dependencies
-        run: sudo apt-get install wmctrl
-      
       - name: Format
         run: cargo fmt -- --check
 
