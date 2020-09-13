@@ -5,10 +5,10 @@ query User {
     mediaListOptions {
       scoreFormat
       animeList {
-        customLists
+        sectionOrder
       }
       mangaList {
-        customLists
+        sectionOrder
       }
     }
     options {

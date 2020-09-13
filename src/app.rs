@@ -607,10 +607,31 @@ pub struct ListRetrieved {
     manga_list: Option<anilist::MediaListCollection>,
 }
 
+impl ListRetrieved {
+    fn reorder_list_section(&mut self, media_type: anilist::MediaType, order_preference: Option<&anilist::MediaListTypeOptions>) -> Option<()> {
+        let list = match media_type {
+            anilist::MediaType::Anime => self.anime_list.as_mut()?,
+            anilist::MediaType::Manga => self.manga_list.as_mut()?,
+        };
+        list.reorder_sections_by(order_preference.as_ref()?);
+        Some(())
+    }
+}
+
 impl Event for ListRetrieved {
-    fn handle(self, app: &mut App) -> Option<Command<Message>> {
+    fn handle(mut self, app: &mut App) -> Option<Command<Message>> {
+        let media_list_options = app.user.as_ref()?.media_list_options.as_ref();
+        if let Some(media_list_options) = media_list_options {
+            let anime_options = media_list_options.anime_list.as_ref();
+            let manga_options = media_list_options.manga_list.as_ref();
+            self.reorder_list_section(anilist::MediaType::Anime, anime_options);
+            self.reorder_list_section(anilist::MediaType::Manga, manga_options);
+        }
+        
         app.page.anime.set_list(self.anime_list);
         app.page.manga.set_list(self.manga_list);
+        app.media = None;
+        app.page.current_media.set_current_media(None, None);
         info!(
             "anime list was retrieved? {}",
             app.page.anime.get_list().is_some()

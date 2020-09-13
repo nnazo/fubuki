@@ -57,7 +57,7 @@ pub enum ScoreFormat {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaListTypeOptions {
-    pub custom_lists: Option<Vec<Option<String>>>,
+    pub section_order: Option<Vec<Option<String>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -67,6 +67,34 @@ pub struct MediaListCollection {
 }
 
 impl MediaListCollection {
+    pub fn reorder_sections_by(&mut self, options: &MediaListTypeOptions) -> Option<()> {
+        let lists = self.lists.as_mut()?;
+        let section_order = options.section_order.as_ref()?;
+
+        // Lists in the section_order may not be present in the MediaListCollection.
+        // Keep a backwards offset to prevent out of bounds indexing.
+        let mut not_present = 0;
+        for (i, section_name) in section_order.iter().enumerate() {
+            // Look for the index of the list section in the MediaListCollection
+            let mut found_ndx = None;
+            for (j, section) in lists.iter_mut().enumerate() {
+                let section = section.as_ref()?;
+                let name = section.name.as_ref()?;
+                if name == section_name.as_ref()? {
+                    found_ndx = Some(j);
+                    break;
+                }
+            }
+            match found_ndx {
+                Some(found_ndx) => lists.swap(i - not_present, found_ndx),
+                // The list section wasn't in the MediaListCollection
+                None => not_present += 1,
+            }
+        }
+
+        Some(())
+    }
+
     pub fn count_entries(&self) -> usize {
         match &self.lists {
             Some(lists) => lists
