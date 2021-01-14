@@ -18,6 +18,19 @@ description = "A cross-platform anime and manga tracker for AniList"
 # name = "fubuki"
 # path = "src/main.rs"
 
+[package.metadata.bundle]
+name = "Fubuki"
+identifier = "dev.fubuki"
+icon = [
+    "res/icon/fubuki.ico",
+    "res/icon/fubuki.png",
+    #"res/icon/fubuki.svg", doesn't work for some reason
+]
+category = "Utility"
+# deb_depends = [""]
+# osx_frameworks = [""}
+# osx_minimum_system_version = 10.12
+
 [dependencies]
 iced = { git = "https://github.com/hecrj/iced", rev = "869fa6b", features = ["canvas", "tokio", "image", "debug"] }
 regex = "1.3.7"
